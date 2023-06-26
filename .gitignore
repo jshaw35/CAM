@@ -28,3 +28,5 @@ aux_cam_*.log
 test_driver_*.sh
 cam_test_summaries
 *.pyc
+
+**/.ipynb_checkpoints/*
