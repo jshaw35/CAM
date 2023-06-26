@@ -24,7 +24,7 @@ module cospsimulator_intr
   use mod_cosp_config,      only: pres_binCenters, pres_binEdges, tau_binCenters,      &
        tau_binEdges, cloudsat_binCenters, cloudsat_binEdges, calipso_binCenters,       &
        calipso_binEdges, misr_histHgtCenters, misr_histHgtEdges,  PARASOL_SZA,         &
-       R_UNDEF, PARASOL_NREFL, LIDAR_NCAT,SR_BINS, N_HYDRO, RTTOV_MAX_CHANNELS,        &
+       R_UNDEF, PARASOL_NREFL, LIDAR_NCAT,SR_BINS, N_HYDRO,                            &
        numMISRHgtBins, CLOUDSAT_DBZE_BINS, LIDAR_NTEMP, calipso_histBsct,              &
        numMODISTauBins, numMODISPresBins, numMODISReffIceBins, numMODISReffLiqBins,    &
        numISCCPTauBins, numISCCPPresBins, numMISRTauBins, reffICE_binEdges,            &
@@ -38,7 +38,8 @@ module cospsimulator_intr
        nhtmisr_cosp      => numMISRHgtBins,      &
        nhydro            => N_HYDRO, &
        cloudsat_preclvl
-    use mod_cosp_stats,       only: cosp_change_vertical_grid
+  use mod_cosp_stats,           only: cosp_change_vertical_grid
+  use mod_cosp_rttov_interface, only: rttov_cfg ! JKS
 #endif
   implicit none
   private
@@ -117,7 +118,7 @@ module cospsimulator_intr
   integer, allocatable         :: htdbze_cosp(:)           ! radar CFAD mixed output dimension index (nht_cosp*CLOUDSAT_DBZE_BINS)
   integer, allocatable         :: htsr_cosp(:)             ! lidar CFAD mixed output dimension index (nht_cosp*nsr_cosp)
   integer, allocatable         :: htmlscol_cosp(:)         ! html-subcolumn mixed output dimension index (nhtml_cosp*nscol_cosp)
-
+       
   ! ######################################################################################
   ! Default namelists
   ! The CAM and COSP namelists defaults are set below.  Some of the COSP namelist 
@@ -146,7 +147,7 @@ module cospsimulator_intr
   
   ! COSP
   logical :: lradar_sim       = .false.      ! COSP namelist variable, can be changed from default by CAM namelist
-  logical :: llidar_sim     = .false.      ! 
+  logical :: llidar_sim       = .false.      ! 
   logical :: lparasol_sim     = .false.      ! 
   logical :: lgrLidar532      = .false.      !
   logical :: latlid           = .false.      !
@@ -229,10 +230,16 @@ module cospsimulator_intr
   ! ######################################################################################
   type(radar_cfg)              :: rcfg_cloudsat ! Radar configuration (Cloudsat)
   type(radar_cfg), allocatable :: rcfg_cs(:)    ! chunked version of rcfg_cloudsat
+  type(rttov_cfg), allocatable, target :: rttov_configs(:) ! Chunked RTTOV configuration
   type(size_distribution)              :: sd       ! Size distribution used by radar simulator
   type(size_distribution), allocatable :: sd_cs(:) ! chunked version of sd
   character(len=64)         :: cloudsat_micro_scheme = 'MMF_v3.5_single_moment'
   
+  ! JKS hardcoding RTTOV features in initial functionality
+  type(character(len=128)), allocatable, dimension(:) :: & 
+       rttov_instrument_namelists   ! Array of paths to RTTOV instrument namelists
+  integer :: rttov_Ninstruments = 0 ! Default is zero
+       
   integer,parameter :: &
        I_LSCLIQ = 1, & ! Large-scale (stratiform) liquid
        I_LSCICE = 2, & ! Large-scale (stratiform) ice
@@ -321,10 +328,21 @@ CONTAINS
     !         to _init functions in cosp_init.
     ! DS2019: Add logicals, default=.false., for new Lidar simuldators (Earthcare (atlid) and ground-based
     !         lidar at 532nm)
-    call COSP_INIT(Lisccp_sim, Lmodis_sim, Lmisr_sim, Lradar_sim, Llidar_sim, LgrLidar532, &
-         Latlid, Lparasol_sim, Lrttov_sim, radar_freq, k2, use_gas_abs, do_ray,              &
-         isccp_topheight, isccp_topheight_direction, surface_radar, rcfg_cloudsat,           &
-         use_vgrid_in, csat_vgrid_in, Nlr_in, pver, cloudsat_micro_scheme)
+!    call COSP_INIT(Lisccp_sim, Lmodis_sim, Lmisr_sim, Lradar_sim, Llidar_sim, LgrLidar532, &
+!         Latlid, Lparasol_sim, Lrttov_sim, radar_freq, k2, use_gas_abs, do_ray,              &
+!         isccp_topheight, isccp_topheight_direction, surface_radar, rcfg_cloudsat,           &
+!         use_vgrid_in, csat_vgrid_in, Nlr_in, pver, cloudsat_micro_scheme)
+         
+    ! JKS - hardcoding initial functionality
+    rttov_Ninstruments = 3
+    allocate(rttov_instrument_namelists(rttov_Ninstruments))
+    rttov_instrument_namelists(1:3) = (/'instrument_nls/cosp2_rttov_inst1.txt','instrument_nls/cosp2_rttov_inst2.txt','instrument_nls/cosp2_rttov_inst3.txt'/)
+    
+    call COSP_INIT(Lisccp_sim, Lmodis_sim, Lmisr_sim, Lradar_sim, Llidar_sim, LgrLidar532,  &
+         Latlid, Lparasol_sim, Lrttov_sim, radar_freq, k2, use_gas_abs, do_ray,             &                       
+         isccp_topheight, isccp_topheight_direction, surface_radar, rcfg_cloudsat,          &
+         use_vgrid_in, csat_vgrid_in, Nlr_in, pver, cloudsat_micro_scheme,                  &
+         rttov_Ninstruments, rttov_instrument_namelists, rttov_configs)         
 
     ! Set number of sub-columns, from namelist
     nscol_cosp = Ncolumns_in
@@ -3320,7 +3338,8 @@ CONTAINS
     allocate(y%sunlit(npoints),y%skt(npoints),y%land(npoints),y%at(npoints,nlevels),     &
              y%pfull(npoints,nlevels),y%phalf(npoints,nlevels+1),y%qv(npoints,nlevels),  &
              y%o3(npoints,nlevels),y%hgt_matrix(npoints,nlevels),y%u_sfc(npoints),       &
-             y%v_sfc(npoints),y%lat(npoints),y%lon(nPoints),y%emis_sfc(nchan),           &
+!             y%v_sfc(npoints),y%lat(npoints),y%lon(nPoints),y%emis_sfc(nchan),           &
+             y%v_sfc(npoints),y%lat(npoints),y%lon(nPoints),                             &
              y%cloudIce(nPoints,nLevels),y%cloudLiq(nPoints,nLevels),y%surfelev(nPoints),&
              y%fl_snow(nPoints,nLevels),y%fl_rain(nPoints,nLevels),y%seaice(npoints),    &
              y%tca(nPoints,nLevels),y%hgt_matrix_half(npoints,nlevels+1))
@@ -3632,10 +3651,10 @@ CONTAINS
         deallocate(y%misr_cldarea)
         nullify(y%misr_cldarea)      
      endif
-     if (associated(y%rttov_tbs))                 then
-        deallocate(y%rttov_tbs)
-        nullify(y%rttov_tbs)     
-     endif
+!     if (associated(y%rttov_tbs))                 then ! JKS need to update all new RTTOV variables
+!        deallocate(y%rttov_tbs)
+!        nullify(y%rttov_tbs)     
+!     endif
      if (associated(y%modis_Cloud_Fraction_Total_Mean))                      then
         deallocate(y%modis_Cloud_Fraction_Total_Mean)       
         nullify(y%modis_Cloud_Fraction_Total_Mean)       
