@@ -704,6 +704,15 @@ ifneq ($(strip $(LAPACK_LIBDIR)),)
   LDFLAGS += -L$(LAPACK_LIBDIR) -llapack -lblas
 endif
 
+#------------------------- 
+# COSP-RTTOV brainstorming. I think using include is bad here. Also this should go somewhere else? - JKS remove wrong file
+#------------------------- 
+
+#ifdef RTTOV
+#include Makefile.rttov    
+#LDFLAGS += $(LIBS) $(LLIBS) $(LDFLAGS_NETCDF) $(LDFLAGS_HDF5) $(LDFLAGS_ARCH) $(LDFLAGS_LAPACK)
+#endif
+
 ifeq ($(SPMD),TRUE)
   FFLAGS += 
   ifneq ($(strip $(LIB_MPI)),)
