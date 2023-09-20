@@ -286,11 +286,7 @@ module cospsimulator_intr
            rad_total_pc(:,:)
   end type rttov_output_write
   
-  ! JKS hardcoding RTTOV features in initial functionality
-  character(len=256), dimension(50) :: rttov_instrument_namelists = ' '     ! Input of paths to RTTOV instrument namelists
-!  character(len=50), dimension(8) :: mode_defs   = ' '
-!  character(len=256), dimension(50) :: rttov_instrument_namelists2   = ' '
-  
+  character(len=256), dimension(50) :: rttov_instrument_namelists = ' '     ! Input of paths to RTTOV instrument namelists  
   integer :: rttov_Ninstruments = 0 ! Default is zero  
          
 #endif
@@ -322,8 +318,6 @@ CONTAINS
     integer :: i,k, unitn ! JKS testing
 
     character(len=256), allocatable :: rttov_instrument_namelists_final(:)
-!    type(character(len=256)), allocatable :: & 
-!       rttov_instrument_namelists_final(:)   ! Array of paths to RTTOV instrument namelists
 
     prsmid_cosp  = pres_binCenters
     prslim_cosp  = pres_binEdges
@@ -358,59 +352,19 @@ CONTAINS
     !         to _init functions in cosp_init.
     ! DS2019: Add logicals, default=.false., for new Lidar simuldators (Earthcare (atlid) and ground-based
     !         lidar at 532nm)
-
-    ! JKS adding flexible namelist I/O
-    if (masterproc) then ! Write to the atm log.
-        write(iulog,*)'Starting "setcosp2values"'
-        write(iulog,*)'rttov_Ninstruments:   ',rttov_Ninstruments
-        write(iulog,*)'   '        
-        write(iulog,*)'rttov_instrument_namelists:   ',rttov_instrument_namelists
-!        write(iulog,*)'   '        
-!        write(iulog,*)'mode_defs:   ',mode_defs
-!        write(iulog,*)'rttov_instrument_namelists2:   ',rttov_instrument_namelists2
-    end if
-!    print*,'mode_defs:   ',mode_defs
-!    print*,'rttov_instrument_namelists2:   ',rttov_instrument_namelists2
     
+    ! Flexible namelist I/O
     allocate(rttov_instrument_namelists_final(rttov_Ninstruments))
     rttov_instrument_namelists_final(:) = rttov_instrument_namelists(1:rttov_Ninstruments)
     
-!    if (rttov_Ninstruments .eq. 1) then
-!        rttov_instrument_namelists_final(1) = rttov_instrument_namelists
-!    else
-!        rttov_instrument_namelists_final(1:rttov_Ninstruments) = rttov_instrument_namelists
-!    end if
-
     if (masterproc) then ! Write to the atm log.
+        write(iulog,*)'In "setcosp2values"'
+        write(iulog,*)'rttov_Ninstruments:   ',rttov_Ninstruments
         write(iulog,*)'cosp_lrttov_sim:      ',cosp_lrttov_sim
-        write(iulog,*)'Lrttov_sim:           ',Lrttov_sim
-        write(iulog,*)'rttov_Ninstruments:   ',rttov_Ninstruments
-        write(iulog,*)'rttov_instrument_namelists_final:   ',rttov_instrument_namelists_final
+        write(iulog,*)'Lrttov_sim:           ',Lrttov_sim        
         write(iulog,*)'   '        
-    end if
-    ! JKS end adding flexible namelist I/O
-
-    ! JKS - hardcoding initial functionality.
-!    deallocate(rttov_instrument_namelists_final)
-!    rttov_Ninstruments = 1 !2 !3
-!    allocate(rttov_instrument_namelists_final(rttov_Ninstruments))
-!    rttov_instrument_namelists_final(:) = '' ! Initialize??
-!    rttov_instrument_namelists_final(1:1) = (/'instrument_nls/cosp2_rttov_inst1.txt'/)
-!    rttov_instrument_namelists_final(1:2) = (/'instrument_nls/cosp2_rttov_inst1.txt','instrument_nls/cosp2_rttov_inst3.txt'/)
-!    rttov_instrument_namelists_final(1:3) = (/'instrument_nls/cosp2_rttov_inst1.txt','instrument_nls/cosp2_rttov_inst2.txt','instrument_nls/cosp2_rttov_inst3.txt'/)
-
-
-    ! rttov_Ninstruments and rttov_instrument_namelists should have been broadcast to all processors when namelists were read
-
-!    allocate(rttov_instrument_namelists_final(rttov_Ninstruments)) 
-!    rttov_instrument_namelists_final(:) = rttov_instrument_namelists(1:rttov_Ninstruments)
-
-    if (masterproc) then ! Write to the atm log.
-        write(iulog,*)'cosp_lrttov_sim:   ',cosp_lrttov_sim
-        write(iulog,*)'Lrttov_sim:        ',Lrttov_sim
-        write(iulog,*)'rttov_Ninstruments:   ',rttov_Ninstruments
+        write(iulog,*)'rttov_instrument_namelists:   ',rttov_instrument_namelists    
         write(iulog,*)'rttov_instrument_namelists_final:   ',rttov_instrument_namelists_final
-        write(iulog,*)'   '        
     end if
     
     unitn = getunit() ! JKS handle many files.
@@ -536,7 +490,6 @@ CONTAINS
     ! Local variables
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'cospsimulator_intr_readnl'
-!    character(len=256), dimension(50) :: rttov_instrument_namelists      ! Input of paths to RTTOV instrument namelists
        
     integer :: i ! JKS remove later
 
@@ -568,9 +521,8 @@ CONTAINS
     if (masterproc) then
         ! Trying to broadcast rttov_instrument_namelists!
         write(iulog,*)'rttov_Ninstruments:   ',rttov_Ninstruments
-        write(iulog,*)'Trying to broadcast rttov_instrument_namelists (1)'
+        write(iulog,*)'Trying to broadcast rttov_instrument_namelists'
         write(iulog,*)'rttov_instrument_namelists:   ',rttov_instrument_namelists
-        ! Output from this^ section confirms that the namelists are being read properly
     end if
     
 #ifdef SPMD
@@ -595,60 +547,9 @@ CONTAINS
     call mpibcast(cosp_histfile_aux,    1,  mpilog, 0, mpicom)
     call mpibcast(cosp_nradsteps,       1,  mpiint, 0, mpicom)
     call mpibcast(rttov_Ninstruments,   1,  mpiint, 0, mpicom) ! JKS - Additional RTTOV variable. This should work.
-
     call mpibcast (rttov_instrument_namelists, len(rttov_instrument_namelists(1))*50, mpichar, 0, mpicom)
 
-!    mode_defs(1) = 'test1'
-!    mode_defs(2) = 'test2'
-!    call mpibcast (mode_defs,     len(mode_defs(1))*8,     mpichar, 0, mpicom) ! JKS test
-    
-!    rttov_instrument_namelists2(1) = 'test1'
-!    rttov_instrument_namelists2(2) = 'test2'
-    
-    ! JKS test
-!    rttov_instrument_namelists2(:) = rttov_instrument_namelists(:)
-    
-!    call mpibcast (rttov_instrument_namelists2,     len(rttov_instrument_namelists2(1))*50,     mpichar, 0, mpicom) ! JKS test
-
-!    call mpibcast (rttov_instrument_namelists, len(rttov_instrument_namelists(1))*rttov_Ninstruments, mpichar, 0, mpicom)
-    
-!    do i=1,rttov_Ninstruments ! JKS broadcast array of strings iteratively
-!        print*,'In mpibcast loop. i = ',i
-!        write(iulog,*)'In mpibcast loop. i = ',i
-!        write(iulog,*)'rttov_instrument_namelists(i):  ',rttov_instrument_namelists(i)
-!        write(iulog,*)'len(rttov_instrument_namelists(i)):  ',len(rttov_instrument_namelists(i))
-!        call mpibcast(rttov_instrument_namelists(i), len(rttov_instrument_namelists(i)), mpichar, 0, mpicom) ! JKS - Additional RTTOV variable, len could be 256
-!    end do
-
-!    call mpibcast(rttov_instrument_namelists, len(rttov_instrument_namelists(1))*rttov_Ninstruments, mpichar, 0, mpicom) ! JKS - Additional RTTOV variable, len could be 256
-
-!   real (r8), intent(inout):: buffer(*)
-!   integer, intent(in):: count
-!   integer, intent(in):: datatype
-!   integer, intent(in):: root
-!   integer, intent(in):: comm
-
-
-    ! Example code from Dustin S.
-    !  call mpi_bcast(gas_namesLW(iChar),len(gas_namesLW(iChar)),MPI_CHARACTER,mpiroot, mpicomm, mpierr)
-
-#endif   
-
-! It makes sense to broadcast the full string array since we can't allocate the shorter array until after the broadcasting step
-!    call mpibcast(rttov_Ninstruments,   1,  mpiint, 0, mpicom) ! JKS - Additional RTTOV variable. This should work.
-!    call mpibcast(rttov_instrument_namelists, len(rttov_instrument_namelists(1))*rttov_Ninstruments, mpichar, 0, mpicom) ! JKS - Additional RTTOV variable, len could be 256
-!    call mpibcast(rttov_instrument_namelists, len(rttov_instrument_namelists), mpichar, 0, mpicom) ! JKS - Additional RTTOV variable
-    ! First argument is the object to bcast, second is dimension, third is type.
-
-    if (masterproc) then
-       if (docosp) then 
-          write(iulog,*)'After MPI Broadcast in "cospsimulator_intr_readnl".'
-          write(iulog,*)'cosp_lrttov_sim:              ', cosp_lrttov_sim
-          write(iulog,*)'lrttov_sim:                   ', lrttov_sim
-          write(iulog,*)'rttov_Ninstruments:           ', rttov_Ninstruments
-          write(iulog,*)'rttov_instrument_namelists:   ', rttov_instrument_namelists
-       end if
-    end if
+#endif
 
     if (cosp_lfrac_out) then
        lfrac_out = .true.
