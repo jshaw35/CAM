@@ -19,8 +19,8 @@
 # -----------------------------------------------------------------------------
 
 
-# RTTOVDIR=../../
-RTTOVDIR=/glade/u/home/jonahshaw/w/RTTOV
+# Update to provide path to RTTOV source code
+RTTOVDIR=/glade/work/jonahshaw/RTTOV
 
 FC=gfortran
 FFLAGS= -I$(RTTOVDIR)/mod -I$(RTTOVDIR)/include -fPIC -O3 -fopenmp -ffree-line-length-none
