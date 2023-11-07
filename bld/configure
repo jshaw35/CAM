@@ -75,6 +75,7 @@ OPTIONS
      -co2_cycle         This option modifies the CAM configuration by
                         increasing the number of advected constituents by 4.
      -cosp              Enable the COSP simulator.
+     -rttov             Enable RTTOV within the COSP simulator.
      -cppdefs <string>  A string of user specified CPP defines.  Appended to
                         Makefile defaults.  E.g. -cppdefs '-DVAR1 -DVAR2'
      -cpl               Coupling framework [mct | nuopc].  Default: mct.
@@ -251,6 +252,7 @@ GetOptions(
     "co2_cycle"                 => \$opts{'co2_cycle'},
     "cosp"                      => \$opts{'cosp'},
     "cosp_libdir=s"             => \$opts{'cosp_libdir'},
+    "rttov"                     => \$opts{'rttov'},
     "cppdefs=s"                 => \$opts{'cppdefs'},
     "cpl=s"                     => \$opts{'cpl'},
     "spcam_clubb_sgs"           => \$opts{'spcam_clubb_sgs'},
@@ -1080,6 +1082,15 @@ if (defined $opts{'cosp'}) {
     $cfg_ref->set('cosp', $opts{'cosp'});
 }
 my $cosp = $cfg_ref->get('cosp');
+
+if ($cosp and defined $opts{'rttov'}) {
+    $cfg_ref->set('rttov', $opts{'rttov'});
+}
+elsif ( defined $opts{'rttov'} ) {
+    die "configure ERROR: rttov defined but cosp undefined \n";
+}
+my $rttov = $cfg_ref->get('rttov');
+
 
 # cosp is only implemented with the cam5 and cam6 physics packages
 if ($cosp and ($phys_pkg ne 'cam5' and $phys_pkg ne 'cam6')) {
@@ -1940,6 +1951,14 @@ if ($cosp) {
     unless (-d $bld_dir or mkdirp($bld_dir)) {
         die "** Could not create the cosp build directory: $bld_dir\n";
     }
+    
+    # Turn on RTTOV if passed the keyword. Makefile copies rttov libraries to the $cosp_libdir path
+    if ($rttov) {
+    
+    $ldflags .= " -L$cosp_libdir -lrttov13_brdf_atlas -lrttov13_emis_atlas -lrttov13_mw_scatt -lrttov13_other -lrttov13_coef_io -lrttov13_hdf -lrttov13_parallel -lrttov13_main -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -fopenmp ";
+    $cfg_ref->set('ldflags', $ldflags);
+    
+    }    
 
     # Create the COSP Makefile from a template and copy it into the cosp bld directory
     if ($print) { print "creating $cosp_libdir/Makefile\n"; }

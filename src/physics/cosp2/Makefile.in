@@ -32,7 +32,7 @@ F90      := $(FC)
 F90FLAGS := $(FREEFLAGS) $(FC_FLAGS)
 VPATH    := $(COSP_PATH)
 
-# Makefile.rttov needed to define: FFLAGS
+# Makefile.rttov needed to define: FFLAGS, LIBS
 ifdef RTTOV
 include $(COSP_PATH)/Makefile.rttov
 endif
@@ -53,8 +53,15 @@ else
 OBJS += cosp_rttov_interfaceSTUB.o cosp_rttovSTUB.o
 endif
 
+# Copy the RTTOV libraries to the current location (which is the EXEROOT/the case bld directory
+ifdef RTTOV
+libcosp.a: $(OBJS)
+	cp $(RTTOVDIR)/lib/*.a .
+	ar cr libcosp.a $(OBJS)
+else
 libcosp.a: $(OBJS)
 	ar cr libcosp.a $(OBJS)
+endif
 
 %.o: %.f90
 	$(F90) -I$(CAM_BLD) $(F90FLAGS) -c  $<

@@ -288,6 +288,8 @@ Switch to enable building COSP simulator package.  1 => build COSP.
 </entry>
 <entry id="cosp_libdir" value="">
 Directory containing COSP library.
+<entry id="rttov" valid_values="0,1" value="0">
+Switch to enable building RTTOV within the COSP simulator package.  1 => build RTTOV.
 </entry>
 <entry id="fv3core_libdir" value="">
 Directory containing FV3CORE library.

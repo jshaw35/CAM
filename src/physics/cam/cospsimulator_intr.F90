@@ -2634,9 +2634,6 @@ CONTAINS
     
     cospstateIN%rttov_sfcmask                  = rttov_sfcmask(1:ncol)
     
-!    cospstateIN%month(1:ncol)                  = 1 ! Arbitrary filler for now.
-!    cospstateIN%time_frac(1:ncol)              = 0._r8 ! Arbitrary filler ! Time (UTC) expressed as a fraction on [0,1]
-    
     ! Set time 
     call get_curr_date(yr, mon, day, ncsec)
     
@@ -2659,13 +2656,38 @@ CONTAINS
 
     cospstateIN%month(1:ncol)                  = mon
     cospstateIN%time_frac(1:ncol)              = ncsec / (86400._r8) ! Seconds/day = 86,400 = 24 * 60 * 60
+    
+    ! Need to convert from total daily seconds to hour, minute, and seconds
+!    MOD(A,P)
+
+    cospstateIN%rttov_date(:,1)  = yr
+    cospstateIN%rttov_date(:,2)  = mon
+    cospstateIN%rttov_date(:,3)  = day
+
+    cospstateIN%rttov_time(:,1)  = ncsec / 3600 ! Hours is nsec / 3600 (seconds per hour). Need integers to get the integer division!
+    cospstateIN%rttov_time(:,2)  = (ncsec - 3600 * (ncsec / 3600)) / 60 ! Remainder divided by 60 seconds per minute
+    cospstateIN%rttov_time(:,3)  = ncsec - (3600*cospstateIN%rttov_time(:,1)) - (60*cospstateIN%rttov_time(:,2)) ! Final remainder
+
+!    cospstateIN%rttov_time(:,1)  = MOD(ncsec*1._r8,60*60._r8) ! Hours is nsec mod 3600 (seconds per hour)
+!    cospstateIN%rttov_time(:,2)  = MOD(ncsec*1._r8 - (60*60*cospstateIN%rttov_time(:,1)),60._r8) ! Remainder mod 60 seconds per minute
+!    cospstateIN%rttov_time(:,3)  = ncsec*1._r8 - (60*60*cospstateIN%rttov_time(:,1)) - (60*cospstateIN%rttov_time(:,2)) ! Final remainder
+
+!    cospstateIN%rttov_time(:,1)  = hour(start_idx:end_idx)
+!    cospstateIN%rttov_time(:,2)  = minute(start_idx:end_idx)
+!    cospstateIN%rttov_time(:,3)  = seconds(start_idx:end_idx)     
 
     cospstateIN%sza(1:ncol)                    = acosd(coszrs(1:ncol)) ! Hokey because we get the SZA by taking the arcosine of cos(sza), but this seems to be the variable the radiation scheme can pass.
 
     if (masterproc) then
        if (docosp) then 
            write(iulog,*)'cospstateIN%month:        ',cospstateIN%month
-           write(iulog,*)'cospstateIN%time_frac:    ',cospstateIN%time_frac       
+           write(iulog,*)'cospstateIN%time_frac:    ',cospstateIN%time_frac     
+           write(iulog,*)'cospstateIN%rttov_date(:,1):    ',cospstateIN%rttov_date(:,1)     
+           write(iulog,*)'cospstateIN%rttov_date(:,2):    ',cospstateIN%rttov_date(:,2)     
+           write(iulog,*)'cospstateIN%rttov_date(:,3):    ',cospstateIN%rttov_date(:,3)
+           write(iulog,*)'cospstateIN%rttov_time(:,1):    ',cospstateIN%rttov_time(:,1)
+           write(iulog,*)'cospstateIN%rttov_time(:,2):    ',cospstateIN%rttov_time(:,2)
+           write(iulog,*)'cospstateIN%rttov_time(:,3):    ',cospstateIN%rttov_time(:,3)
            write(iulog,*)'coszrs:             ',coszrs
            write(iulog,*)'cospstateIN%sza:    ',cospstateIN%sza
            write(iulog,*)'cospstateIN%lat:    ',cospstateIN%lat
@@ -4120,6 +4142,7 @@ CONTAINS
              y%DeffLiq(nPoints,nLevels),y%DeffIce(nPoints,nLevels),                      &
              y%fl_snow(nPoints,nLevels),y%fl_rain(nPoints,nLevels),                      &
              y%tca(nPoints,nLevels),y%hgt_matrix_half(npoints,nlevels),                  &
+             y%rttov_date(nPoints,3),y%rttov_time(nPoints,3),                            &
              y%month(nPoints),y%time_frac(nPoints),y%sza(nPoints))
 
   end subroutine construct_cospstateIN
@@ -4370,6 +4393,8 @@ CONTAINS
     if (allocated(y%qv))              deallocate(y%qv)
     if (allocated(y%month))           deallocate(y%month) ! New RTTOV variables below
     if (allocated(y%time_frac))       deallocate(y%time_frac)
+    if (allocated(y%rttov_date))      deallocate(y%rttov_date)
+    if (allocated(y%rttov_time))      deallocate(y%rttov_time)    
     if (allocated(y%sza))             deallocate(y%sza)
     if (allocated(y%co2))             deallocate(y%co2)
     if (allocated(y%ch4))             deallocate(y%ch4)
