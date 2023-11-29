@@ -233,6 +233,7 @@ module cospsimulator_intr
   type(radar_cfg)              :: rcfg_cloudsat ! Radar configuration (Cloudsat)
   type(radar_cfg), allocatable :: rcfg_cs(:)    ! chunked version of rcfg_cloudsat
   type(rttov_cfg), allocatable, target :: rttov_configs(:) ! Chunked RTTOV configuration
+!  type(rttov_cfg), allocatable, target :: rttov_configs(:) ! Chunked RTTOV configuration
   type(size_distribution)              :: sd       ! Size distribution used by radar simulator
   type(size_distribution), allocatable :: sd_cs(:) ! chunked version of sd
   character(len=64)         :: cloudsat_micro_scheme = 'MMF_v3.5_single_moment'
@@ -2472,16 +2473,16 @@ CONTAINS
     ! Set time 
     call get_curr_date(yr, mon, day, ncsec)
     
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'ncol:      ',ncol
-           write(iulog,*)'mon:      ',mon
-           write(iulog,*)'ncsec:    ',ncsec
-           write(iulog,*)'coszrs:    ',coszrs
-           write(iulog,*)'shape(coszrs):    ',shape(coszrs)
-           write(iulog,*)'shape(cospstateIN%sza):    ',shape(cospstateIN%sza)
-       end if
-    end if
+!    if (masterproc) then
+!       if (docosp) then 
+!           write(iulog,*)'ncol:      ',ncol
+!           write(iulog,*)'mon:      ',mon
+!           write(iulog,*)'ncsec:    ',ncsec
+!           write(iulog,*)'coszrs:    ',coszrs
+!           write(iulog,*)'shape(coszrs):    ',shape(coszrs)
+!           write(iulog,*)'shape(cospstateIN%sza):    ',shape(cospstateIN%sza)
+!       end if
+!    end if
     
     cospstateIN%rttov_date(:,1)  = yr
     cospstateIN%rttov_date(:,2)  = mon
@@ -2514,6 +2515,7 @@ CONTAINS
            write(iulog,*)'cospstateIN%sza:    ',cospstateIN%sza
            write(iulog,*)'cospstateIN%lat:    ',cospstateIN%lat
            write(iulog,*)'cospstateIN%lon:    ',cospstateIN%lon
+           write(iulog,*)'cospstateIN%phalf(1,:):    ',cospstateIN%phalf(1,:)
        end if
     end if 
 
@@ -2521,7 +2523,6 @@ CONTAINS
     ! Combine large-scale and convective cloud mixing ratios for RTTOV. Could pass in separately for cloud categories
     cospstateIN%cloudIce = mr_lsice(1:ncol,1:pver) + mr_ccice(1:ncol,1:pver)
     cospstateIN%cloudLiq = mr_lsliq(1:ncol,1:pver) + mr_ccliq(1:ncol,1:pver)     
-          
 
     ! Combine large-scale and convective cloud effective radii into effective diameters for RTTOV
     ! Reff(Npoints,Nlevels,N_HYDRO)
@@ -2567,14 +2568,32 @@ CONTAINS
 !          write(iulog,*)'cam_in%u10:     ',cam_in%u10          
 !       end if
 !    end if 
-
+    if (masterproc) then
+       if (docosp) then 
+           write(iulog,*)'at construct_cospIN'
+       end if
+    end if 
+    
     ! Optical inputs
     call t_startf("construct_cospIN")
     call construct_cospIN(ncol,nscol_cosp,pver,rttov_Ninstruments,cospIN,emis_grey=1.0_r8) ! JKS apply unitary blackbody surface emissivity to be consistent with CESM physics
     cospIN%emsfc_lw      = emsfc_lw
     if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)
+    
+    if (masterproc) then
+       if (docosp) then 
+           write(iulog,*)'after construct_cospIN'
+       end if
+    end if         
+    
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
     call t_stopf("construct_cospIN") 
+    
+    if (masterproc) then
+       if (docosp) then 
+           write(iulog,*)'at subsample_and_optics'
+       end if
+    end if     
 
     ! *NOTE* Fields passed into subsample_and_optics are ordered from TOA-2-SFC.
     if (lradar_sim .or. (llidar_sim .or. (lisccp_sim .or. (lmisr_sim .or. lmodis_sim)))) then ! RTTOV does not use subsample_and_optics
@@ -2592,12 +2611,24 @@ CONTAINS
              dem_s_snow(1:ncol,1:pver),state%ps(1:ncol),cospstateIN,cospIN)
         call t_stopf("subsample_and_optics")
     end if
-    
+
+    if (masterproc) then
+       if (docosp) then 
+           write(iulog,*)'at COSP_SIMULATOR'
+       end if
+    end if 
+
     ! ######################################################################################
     ! Call COSP
     ! ######################################################################################
     call t_startf("cosp_simulator")
     cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.false.) 
+
+    if (masterproc) then
+       if (docosp) then 
+           write(iulog,*)'after COSP_SIMULATOR'
+       end if
+    end if 
 
     ! Check status flags
     nerror = 0
@@ -3883,7 +3914,7 @@ CONTAINS
              y%tautot_S_ice(       npoints, ncolumns         ),&
              y%tautot_S_liq(       npoints, ncolumns)         ,&
              y%fracPrecipIce(npoints,   ncolumns))
-    if (Ninst_rttov .gt. 0) allocate(y%cfg_rttov(ninst_rttov)) ! JKS do I need an if statement if "ninst_rttov" is zero? Do I even need to allocate if this variable is a pointer?
+    if (ninst_rttov .gt. 0) allocate(y%cfg_rttov(ninst_rttov)) ! Why do I need to allocate if this variable is a pointer?
   end subroutine construct_cospIN
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

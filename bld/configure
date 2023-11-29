@@ -1956,6 +1956,8 @@ if ($cosp) {
     if ($rttov) {
     
     $ldflags .= " -L$cosp_libdir -lrttov13_brdf_atlas -lrttov13_emis_atlas -lrttov13_mw_scatt -lrttov13_other -lrttov13_coef_io -lrttov13_hdf -lrttov13_parallel -lrttov13_main -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -fopenmp ";
+    # JKS - simpler version without openmp
+    #$ldflags .= " -L$cosp_libdir -lrttov13_brdf_atlas -lrttov13_emis_atlas -lrttov13_other -lrttov13_coef_io -lrttov13_hdf -lrttov13_main -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 ";
     $cfg_ref->set('ldflags', $ldflags);
     
     }    
