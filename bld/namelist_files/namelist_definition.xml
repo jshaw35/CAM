@@ -2510,6 +2510,15 @@ will be saved.
 
 Default: FALSE
 </entry>
+    
+<entry id="cosp_lrttov_sim" type="logical"  category="cosp"
+       group="cospsimulator_nl" valid_values="">
+If true, RTTOV simulator will be run and output
+will be saved according to the appropriate RTTOV
+instrument namelist files in "rttov_instrument_namelists".
+
+Default: FALSE
+</entry>
 
 <!-- COSP input control parameters -->
 
@@ -2518,6 +2527,19 @@ Default: FALSE
 Number of subcolumns in SCOPS
 This default logical is set in cospsimulator_intr.F90
 Default: 50
+</entry>
+    
+<entry id="rttov_Ninstruments" type="integer"  category="cosp"
+       group="cospsimulator_nl" valid_values="">
+Number of RTTOV instruments to simulate.
+This default logical is set in cospsimulator_intr.F90
+Default: 0
+</entry>
+    
+<entry id="rttov_instrument_namelists" type="char*256(50)"  category="cosp"
+       group="cospsimulator_nl" valid_values="" >
+List of RTTOV instrument namelist files read when running RTTOV in COSP.
+Default: none
 </entry>
 
 <!-- COSP output parameters -->

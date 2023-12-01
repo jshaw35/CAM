@@ -37,3 +37,6 @@ cam_test_summaries
 
 # Ignore python bytecode files
 *.pyc
+
+# Ignore jupyter notebook checkpoints
+**/.ipynb_checkpoints/*
