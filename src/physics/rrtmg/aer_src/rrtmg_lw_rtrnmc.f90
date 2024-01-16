@@ -30,8 +30,13 @@
 
 !-----------------------------------------------------------------------------
       subroutine rtrnmc(nlayers, istart, iend, iout, pz, semiss, &
-                        cldfmc, taucmc, planklay, planklev, plankbnd, &
-                        pwvcm, fracs, taut, &
+                        cldfmc, taucmc, &
+                        planklay, planklay_clr, planklay_cld, &
+                        planklev, planklev_clr, planklev_cld, &
+                        plankbnd, plankbnd_clr, plankbnd_cld, &
+                        pwvcm, pwvcm_clr, pwvcm_cld, &
+                        fracs, &
+                        taut, taut_clr, taut_cld, &
                         totuflux, totdflux, fnet, htr, &
                         totuclfl, totdclfl, fnetc, htrc, totufluxs, totdfluxs ) 
 !-----------------------------------------------------------------------------
@@ -66,18 +71,30 @@
       real(kind=r8), intent(in) :: pz(0:nlayers)               ! level (interface) pressures (hPa, mb)
                                                         !    Dimensions: (0:nlayers)
       real(kind=r8), intent(in) :: pwvcm                ! precipitable water vapor (cm)
+      real(kind=r8), intent(in) :: pwvcm_clr            ! JKS: precipitable water vapor (cm) (clear-sky)
+      real(kind=r8), intent(in) :: pwvcm_cld            ! JKS: precipitable water vapor (cm) (cloudy-sky)
       real(kind=r8), intent(in) :: semiss(nbndlw)            ! lw surface emissivity
                                                         !    Dimensions: (nbndlw)
       real(kind=r8), intent(in) :: planklay(nlayers,nbndlw)        ! 
+      real(kind=r8), intent(in) :: planklay_clr(nlayers,nbndlw)        ! JKS (clear-sky)
+      real(kind=r8), intent(in) :: planklay_cld(nlayers,nbndlw)        ! JKS (cloudy-sky)
                                                         !    Dimensions: (nlayers,nbndlw)
       real(kind=r8), intent(in) :: planklev(0:nlayers,nbndlw)       ! 
+      real(kind=r8), intent(in) :: planklev_clr(0:nlayers,nbndlw)       ! JKS (clear-sky)
+      real(kind=r8), intent(in) :: planklev_cld(0:nlayers,nbndlw)       ! JKS (cloudy-sky)
                                                         !    Dimensions: (0:nlayers,nbndlw)
       real(kind=r8), intent(in) :: plankbnd(nbndlw)          ! 
+      real(kind=r8), intent(in) :: plankbnd_clr(nbndlw)          ! JKS (clear-sky)
+      real(kind=r8), intent(in) :: plankbnd_cld(nbndlw)          ! JKS (cloudy-sky)
                                                         !    Dimensions: (nbndlw)
       real(kind=r8), intent(in) :: fracs(nlayers,ngptlw)           ! 
                                                         !    Dimensions: (nlayers,ngptw)
       real(kind=r8), intent(in) :: taut(nlayers,ngptlw)            ! gaseous + aerosol optical depths
                                                         !    Dimensions: (nlayers,ngptlw)
+      real(kind=r8), intent(in) :: taut_clr(nlayers,ngptlw)        ! JKS gaseous + aerosol optical depths with clearsky water vapor
+                                                        !    Dimensions: (nlayers,ngptlw)
+      real(kind=r8), intent(in) :: taut_cld(nlayers,ngptlw)        ! JKS gaseous + aerosol optical depths with allsky water vapor
+                                                        !    Dimensions: (nlayers,ngptlw)                                                        
 
 ! Clouds
       real(kind=r8), intent(in) :: cldfmc(ngptlw,nlayers)          ! layer cloud fraction [mcica]
@@ -127,6 +144,8 @@
 
 
       real(kind=r8) :: secdiff(nbndlw)                   ! secant of diffusivity angle
+      real(kind=r8) :: secdiff_clr(nbndlw)               ! JKS: secant of diffusivity angle (clear-sky)
+      real(kind=r8) :: secdiff_cld(nbndlw)               ! JKS: secant of diffusivity angle (cloudy-sky)
       real(kind=r8) :: a0(nbndlw),a1(nbndlw),a2(nbndlw)  ! diffusivity angle adjustment coefficients
       real(kind=r8) :: wtdiff, rec_6
       real(kind=r8) :: transcld, radld, radclrd, plfrac, blay, dplankup, dplankdn
@@ -224,10 +243,18 @@
       do ibnd = 1,nbndlw
          if (ibnd.eq.1 .or. ibnd.eq.4 .or. ibnd.ge.10) then
            secdiff(ibnd) = 1.66_r8
+           secdiff_clr(ibnd) = 1.66_r8 ! JKS
+           secdiff_cld(ibnd) = 1.66_r8 ! JKS
          else
            secdiff(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm)
+           secdiff_clr(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm_clr) ! JKS
+           secdiff_cld(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm_cld) ! JKS
            if (secdiff(ibnd) .gt. 1.80_r8) secdiff(ibnd) = 1.80_r8
+           if (secdiff_clr(ibnd) .gt. 1.80_r8) secdiff_clr(ibnd) = 1.80_r8 ! JKS
+           if (secdiff_cld(ibnd) .gt. 1.80_r8) secdiff_cld(ibnd) = 1.80_r8 ! JKS
            if (secdiff(ibnd) .lt. 1.50_r8) secdiff(ibnd) = 1.50_r8
+           if (secdiff_clr(ibnd) .lt. 1.50_r8) secdiff_clr(ibnd) = 1.50_r8 ! JKS
+           if (secdiff_cld(ibnd) .lt. 1.50_r8) secdiff_cld(ibnd) = 1.50_r8 ! JKS
          endif
       enddo
 
@@ -256,7 +283,8 @@
          do lay = 1, nlayers
             if (cldfmc(ig,lay) .eq. 1._r8) then
                ib = ngb(ig)
-               odcld(lay,ig) = secdiff(ib) * taucmc(ig,lay)
+!               odcld(lay,ig) = secdiff(ib) * taucmc(ig,lay)
+               odcld(lay,ig) = secdiff_cld(ib) * taucmc(ig,lay) ! JKS
                transcld = exp(-odcld(lay,ig))
                abscld(lay,ig) = 1._r8 - transcld
                efclfrac(lay,ig) = abscld(lay,ig) * cldfmc(ig,lay)
@@ -289,13 +317,21 @@
 
          do lev = nlayers, 1, -1
                plfrac = fracs(lev,igc)
-               blay = planklay(lev,iband)
-               dplankup = planklev(lev,iband) - blay
-               dplankdn = planklev(lev-1,iband) - blay
-               odepth = secdiff(iband) * taut(lev,igc)
-               if (odepth .lt. 0.0_r8) odepth = 0.0_r8
+!               blay = planklay(lev,iband)
+!               dplankup = planklev(lev,iband) - blay
+!               dplankdn = planklev(lev-1,iband) - blay
+!               odepth = secdiff(iband) * taut(lev,igc)
+!               if (odepth .lt. 0.0_r8) odepth = 0.0_r8
 !  Cloudy layer
                if (icldlyr(lev).eq.1) then
+                  ! JKS use the cloudy planck variables
+                  blay = planklay_cld(lev,iband)
+                  dplankup = planklev_cld(lev,iband) - blay
+                  dplankdn = planklev_cld(lev-1,iband) - blay
+                  ! JKS use a cloudy absorber optical depth
+!                  odepth = secdiff(iband) * taut(lev,igc)
+                  odepth = secdiff_cld(iband) * taut_cld(lev,igc) ! KLS
+                  if (odepth .lt. 0.0_r8) odepth = 0.0_r8               
                   iclddn = 1
                   odtot = odepth + odcld(lev,igc)
                   if (odtot .lt. 0.06_r8) then
@@ -365,6 +401,14 @@
                   endif
 !  Clear layer
                else
+                  ! JKS use the clear planck variables
+                  blay = planklay_clr(lev,iband)
+                  dplankup = planklev_clr(lev,iband) - blay
+                  dplankdn = planklev_clr(lev-1,iband) - blay               
+                  ! JKS use a clear absorber optical depth
+!                  odepth = secdiff(iband) * taut(lev,igc)
+                  odepth = secdiff_clr(iband) * taut_clr(lev,igc) ! JKS
+                  if (odepth .lt. 0.0_r8) odepth = 0.0_r8  
                   if (odepth .le. 0.06_r8) then
                      atrans(lev) = odepth-0.5_r8*odepth*odepth
                      odepth = rec_6*odepth
@@ -404,7 +448,8 @@
 !  Add in specular reflection of surface downward radiance.
          reflect = 1._r8 - semiss(iband)
          radlu = rad0 + reflect * radld
-         radclru = rad0 + reflect * radclrd
+!         radclru = rad0 + reflect * radclrd
+         radclru = (fracs(1,igc) * plankbnd_clr(iband)) + reflect * radclrd ! JKS trying a consistent clear-sky counterpart.
 
 
 ! Upward radiative transfer loop.

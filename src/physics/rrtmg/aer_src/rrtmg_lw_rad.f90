@@ -76,12 +76,13 @@ contains
 
 subroutine rrtmg_lw &
             (lchnk   ,ncol    ,nlay    ,icld    ,                   &
-             play    ,plev    ,tlay    ,tlev    ,tsfc    ,h2ovmr  , &
+             play    ,plev    ,tlay    ,tlev    ,tsfc    ,h2ovmr  , h2ovmr_clr , h2ovmr_cld ,&
              o3vmr   ,co2vmr  ,ch4vmr  ,o2vmr   ,n2ovmr  ,&
              cfc11vmr,cfc12vmr, &
              cfc22vmr,ccl4vmr ,emis    , &
              cldfmcl ,taucmcl ,ciwpmcl ,clwpmcl ,reicmcl ,relqmcl , &
              tauaer  , &
+             verbose , & ! JKS
              uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc, uflxs, dflxs )
 
 ! -------- Description --------
@@ -166,6 +167,10 @@ subroutine rrtmg_lw &
                                                      !    Dimensions: (ncol)
    real(kind=r8), intent(in) :: h2ovmr(:,:)          ! H2O volume mixing ratio
                                                      !    Dimensions: (ncol,nlay)
+   real(kind=r8), intent(in) :: h2ovmr_clr(:,:)      ! JKS: H2O volume mixing ratio (for clearsky)
+                                                     !    Dimensions: (ncol,nlay)  
+   real(kind=r8), intent(in) :: h2ovmr_cld(:,:)      ! JKS: H2O volume mixing ratio (for cloudysky)
+                                                     !    Dimensions: (ncol,nlay)                                                       
    real(kind=r8), intent(in) :: o3vmr(:,:)           ! O3 volume mixing ratio
                                                      !    Dimensions: (ncol,nlay)
    real(kind=r8), intent(in) :: co2vmr(:,:)          ! CO2 volume mixing ratio
@@ -202,6 +207,7 @@ subroutine rrtmg_lw &
    real(kind=r8), intent(in) :: tauaer(:,:,:)        ! aerosol optical depth
                                                      !   at mid-point of LW spectral bands
                                                      !    Dimensions: (ncol,nlay,nbndlw)
+   logical, intent(in) :: verbose                    ! JKS: Whether (1) or not (0) to print statements
 
    ! ----- Output -----
 
@@ -244,10 +250,16 @@ subroutine rrtmg_lw &
    real(kind=r8) :: wkl(mxmol,nlay)          ! molecular amounts (mol/cm-2)
    real(kind=r8) :: wx(maxxsec,nlay)         ! cross-section amounts (mol/cm-2)
    real(kind=r8) :: pwvcm                    ! precipitable water vapor (cm)
+   real(kind=r8) :: pwvcm_clr                ! JKS: precipitable water vapor (cm) (clear-sky)
+   real(kind=r8) :: pwvcm_cld                ! JKS: precipitable water vapor (cm) (cloudy-sky)
    real(kind=r8) :: semiss(nbndlw)           ! lw surface emissivity
    real(kind=r8) :: fracs(nlay,ngptlw)       ! 
    real(kind=r8) :: taug(nlay,ngptlw)        ! gaseous optical depths
+   real(kind=r8) :: taug_clr(nlay,ngptlw)    ! JKS: gaseous optical depths (with clearsky water vapor)
+   real(kind=r8) :: taug_cld(nlay,ngptlw)    ! JKS: gaseous optical depths (with cloudysky water vapor)
    real(kind=r8) :: taut(nlay,ngptlw)        ! gaseous + aerosol optical depths
+   real(kind=r8) :: taut_clr(nlay,ngptlw)    ! JKS: gaseous + aerosol optical depths (with clearsky water vapor)
+   real(kind=r8) :: taut_cld(nlay,ngptlw)    ! JKS: gaseous + aerosol optical depths (with cloudysky water vapor)
 
    real(kind=r8) :: taua(nlay,nbndlw)        ! aerosol optical depth
 
@@ -259,6 +271,14 @@ subroutine rrtmg_lw &
    real(kind=r8) :: planklay(nlay,nbndlw)      ! 
    real(kind=r8) :: planklev(0:nlay,nbndlw)    ! 
    real(kind=r8) :: plankbnd(nbndlw)           ! 
+   
+   ! JKS: Duplicate variables
+   real(kind=r8) :: planklay_clr(nlay,nbndlw)      ! 
+   real(kind=r8) :: planklev_clr(0:nlay,nbndlw)    ! 
+   real(kind=r8) :: plankbnd_clr(nbndlw)           !    
+   real(kind=r8) :: planklay_cld(nlay,nbndlw)      ! 
+   real(kind=r8) :: planklev_cld(0:nlay,nbndlw)    ! 
+   real(kind=r8) :: plankbnd_cld(nbndlw)           !       
 
    real(kind=r8) :: colh2o(nlay)               ! column amount (h2o)
    real(kind=r8) :: colco2(nlay)               ! column amount (co2)
@@ -322,12 +342,99 @@ subroutine rrtmg_lw &
    iout = 0
    ims = 1
 
+   ! These values confirm that the new h2ovmr fields are being pass in to rrtmg_lw_rad correctly.
+   if (verbose) print*,'h2ovmr(1,:):      ',h2ovmr(1,:)
+   if (verbose) print*,'h2ovmr_clr(1,:):  ',h2ovmr_clr(1,:)
+   if (verbose) print*,'h2ovmr_cld(1,:):  ',h2ovmr_cld(1,:)
+
    ! Main longitude/column loop within RRTMG.
    do iplon = 1, ncol
 
       !  Prepare atmospheric profile from GCM for use in RRTMG, and define
-      !  other input parameters.  
+      !  other input parameters.                    
+        
+      ! Run set-up subroutines for clear-sky and all-sky water vapor
+      !------------------------ CLEAR-SKY --------------------------!
+      call inatm(iplon, nlay, icld, iaer, &
+                 play, plev, tlay, tlev, tsfc, h2ovmr_clr, &
+                 o3vmr, co2vmr, ch4vmr, o2vmr, n2ovmr, cfc11vmr, cfc12vmr, &
+                 cfc22vmr, ccl4vmr, emis, &
+                 cldfmcl, taucmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, tauaer, &
+                 pavel, pz, tavel, tz, tbound, semiss, coldry, &
+                 wkl, wbrodl, wx, pwvcm_clr, &
+                 cldfmc, taucmc, ciwpmc, clwpmc, reicmc, dgesmc, relqmc, taua)
+
+      ! Calculate information needed by the radiative transfer routine
+      ! that is specific to this atmosphere
+      ! by interpolating data from stored reference atmospheres. 
+
+      call setcoef(nlay, istart, pavel, tavel, tz, tbound, semiss, &
+                   coldry, wkl, wbrodl, &
+                   laytrop, jp, jt, jt1, planklay_clr, planklev_clr, plankbnd_clr, & ! JKS
+                   colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+                   colbrd, fac00, fac01, fac10, fac11, &
+                   rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+                   rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+                   rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+                   selffac, selffrac, indself, forfac, forfrac, indfor, &
+                   minorfrac, scaleminor, scaleminorn2, indminor)
+
+      !  Calculate the gaseous optical depths and Planck fractions for 
+      !  each longwave spectral band.
+
+      call taumol(nlay, pavel, wx, coldry, &
+                  laytrop, jp, jt, jt1, planklay_clr, planklev_clr, plankbnd_clr, &
+                  colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+                  colbrd, fac00, fac01, fac10, fac11, &
+                  rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+                  rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+                  rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+                  selffac, selffrac, indself, forfac, forfrac, indfor, &
+                  minorfrac, scaleminor, scaleminorn2, indminor, &
+                  fracs, taug_clr)      
       
+      
+      !------------------------ CLOUDY-SKY --------------------------!
+      call inatm(iplon, nlay, icld, iaer, &
+                 play, plev, tlay, tlev, tsfc, h2ovmr_cld, &
+                 o3vmr, co2vmr, ch4vmr, o2vmr, n2ovmr, cfc11vmr, cfc12vmr, &
+                 cfc22vmr, ccl4vmr, emis, &
+                 cldfmcl, taucmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, tauaer, &
+                 pavel, pz, tavel, tz, tbound, semiss, coldry, &
+                 wkl, wbrodl, wx, pwvcm_cld, &
+                 cldfmc, taucmc, ciwpmc, clwpmc, reicmc, dgesmc, relqmc, taua)
+
+      ! Calculate information needed by the radiative transfer routine
+      ! that is specific to this atmosphere
+      ! by interpolating data from stored reference atmospheres. 
+
+      call setcoef(nlay, istart, pavel, tavel, tz, tbound, semiss, &
+                   coldry, wkl, wbrodl, &
+                   laytrop, jp, jt, jt1, planklay_cld, planklev_cld, plankbnd_cld, &
+                   colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+                   colbrd, fac00, fac01, fac10, fac11, &
+                   rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+                   rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+                   rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+                   selffac, selffrac, indself, forfac, forfrac, indfor, &
+                   minorfrac, scaleminor, scaleminorn2, indminor)
+
+      !  Calculate the gaseous optical depths and Planck fractions for 
+      !  each longwave spectral band.
+
+      call taumol(nlay, pavel, wx, coldry, &
+                  laytrop, jp, jt, jt1, planklay_cld, planklev_cld, plankbnd_cld, &
+                  colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+                  colbrd, fac00, fac01, fac10, fac11, &
+                  rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+                  rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+                  rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+                  selffac, selffrac, indself, forfac, forfrac, indfor, &
+                  minorfrac, scaleminor, scaleminorn2, indminor, &
+                  fracs, taug_cld)      
+
+
+      !------------------------ Normal-SKY --------------------------!
       call inatm(iplon, nlay, icld, iaer, &
                  play, plev, tlay, tlev, tsfc, h2ovmr, &
                  o3vmr, co2vmr, ch4vmr, o2vmr, n2ovmr, cfc11vmr, cfc12vmr, &
@@ -365,27 +472,35 @@ subroutine rrtmg_lw &
                   selffac, selffrac, indself, forfac, forfrac, indfor, &
                   minorfrac, scaleminor, scaleminorn2, indminor, &
                   fracs, taug)
+                  
 
       ! Combine gaseous and aerosol optical depths, if aerosol active
       if (iaer == 0) then
          do ig = 1, ngptlw 
             do k = 1, nlay
                taut(k,ig) = taug(k,ig)
+               taut_clr(k,ig) = taug_clr(k,ig) ! JKS
+               taut_cld(k,ig) = taug_cld(k,ig) ! JKS
             end do
          end do
       else if (iaer == 10) then
          do ig = 1, ngptlw 
             do k = 1, nlay
                taut(k,ig) = taug(k,ig) + taua(k,ngb(ig))
+               taut_clr(k,ig) = taug_clr(k,ig) + taua(k,ngb(ig)) ! JKS
+               taut_cld(k,ig) = taug_cld(k,ig) + taua(k,ngb(ig)) ! JKS
             end do
          end do
       end if
 
       ! Call the radiative transfer routine.
-
       call rtrnmc(nlay, istart, iend, iout, pz, semiss, &
-                  cldfmc, taucmc, planklay, planklev, plankbnd, &
-                  pwvcm, fracs, taut, &
+                  cldfmc, taucmc,  &
+                  planklay, planklay_clr, planklay_cld, &
+                  planklev, planklev_clr, planklev_cld, & 
+                  plankbnd, plankbnd_clr, plankbnd_cld, &
+                  pwvcm, pwvcm_clr, pwvcm_cld, &
+                  fracs, taut, taut_clr, taut_cld, & ! JKS pass additional optical depths
                   totuflux, totdflux, fnet, htr, &
                   totuclfl, totdclfl, fnetc, htrc, totufluxs, totdfluxs )
 
@@ -406,6 +521,16 @@ subroutine rrtmg_lw &
       end do
 
    end do
+   if (verbose) print*,'end of rrtmg_lw'
+!   if (verbose) print*,'taug:   ',taug
+!   if (verbose) print*,'taug_clr:   ',taug_clr
+!   if (verbose) print*,'taug_cld:   ',taug_cld
+!   if (verbose) print*,'taut:   ',taut
+!   if (verbose) print*,'taut_clr:   ',taut_clr
+!   if (verbose) print*,'taut_cld:   ',taut_cld
+   if (verbose) print*,'pwvcm:   ',pwvcm
+   if (verbose) print*,'pwvcm_clr:   ',pwvcm_clr
+   if (verbose) print*,'pwvcm_cld:   ',pwvcm_cld
 
 end subroutine rrtmg_lw
 
