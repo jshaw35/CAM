@@ -732,15 +732,18 @@ CONTAINS
     ! Also, where is this subroutine called from?
     
     ! Assume the rttov_configs object is accessible and set up here
-    if ((lrttov_sim) .and. (rttov_Ninstruments .gt. 0)) then
-        do i=1,rttov_Ninstruments
+   !  if ((lrttov_sim) .and. (rttov_Ninstruments .gt. 0)) then
+    if (lrttov_sim) then
+       do i=1,rttov_Ninstruments
             write (i_str,fmt) i ! converting integer to string i_str using a 'internal file'
-            call add_hist_coord("RTTOV_CHAN_I"//trim(i_str),                           & ! This string needs to be 16 characters or less
+            call add_hist_coord('RTTOV_CHAN_I'//trim(i_str),                           & ! This string needs to be 16 characters or less
                                 rttov_configs(i) % nchan_out,                          & ! Size
                                 'RTTOV Channel Indices for Instrument '//trim(i_str),  & ! Long name
                                 'Channel Index',                                       & ! Units
-                                rttov_configs(i) % iChannel_out)                         ! History coordinate values
-        end do
+                                values=rttov_configs(i) % iChannel_out)                  ! History coordinate values. Original code
+            ! print*,"rttov_configs(i) % iChannel_out:   ",rttov_configs(i) % iChannel_out
+            ! print*,"'RTTOV_CHAN_I'//trim(i_str):   ",'RTTOV_CHAN_I'//trim(i_str)
+       end do
     end if
 
 #endif
@@ -1170,103 +1173,103 @@ CONTAINS
     if (lrttov_sim) then
        do i=1,rttov_Ninstruments
           write (i_str,fmt) i ! converting integer to string i_str using a 'internal file'
-!          temp_str2 = "RTTOV_CHAN_I"//trim(i_str)
+         !  print*,'"RTTOV_CHAN_I"//trim(i_str):   ',"RTTOV_CHAN_I"//trim(i_str)
           if (.not. rttov_configs(i) % Lrttov_pc) then
               if (rttov_configs(i) % Lrttov_bt) then
                   ! Just add one variable for now.               
-                  call addfld ("rttov_bt_total_inst"//trim(i_str),     & ! Variable name
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),        & ! History coordinate name
+                  call addfld ('rttov_bt_total_inst'//trim(i_str),     & ! Variable name
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),        & ! History coordinate name
                                'A',                                    & ! A - 'average', I - 'instantaneous'
                                'Degrees Kelvin',                       & ! Units
                                'RTTOV All-sky Brightness Temperature', & ! Long name
                                flag_xyfill=.true.,                     &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_bt_total_inst"//trim(i_str),cosp_histfile_num,' ')
+                  call add_default ('rttov_bt_total_inst'//trim(i_str),cosp_histfile_num,' ')
               end if
 
               if (rttov_configs(i) % Lrttov_bt .and. ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer))) then                
-                  call addfld ("rttov_bt_clear_inst"//trim(i_str),       &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),          &
+                  call addfld ('rttov_bt_clear_inst'//trim(i_str),       &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),          &
                                'A',                                      &
                                'Degrees Kelvin',                         &
                                'RTTOV Clear-sky Brightness Temperature', &
                                flag_xyfill=.true.,                       &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_bt_clear_inst"//trim(i_str),cosp_histfile_num,' ')                  
+                  call add_default ('rttov_bt_clear_inst'//trim(i_str),cosp_histfile_num,' ')                  
               end if
 
               if (rttov_configs(i) % Lrttov_rad) then
-                  call addfld ("rttov_rad_total_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),     &
+                  call addfld ('rttov_rad_total_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),     &
                                'A',                                 &
                                'mW/cm-1/sr/m2',                     &
                                'RTTOV All-sky Radiance',            &
                                flag_xyfill=.true.,                  &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_rad_total_inst"//trim(i_str),cosp_histfile_num,' ')
+                  call add_default ('rttov_rad_total_inst'//trim(i_str),cosp_histfile_num,' ')
               end if
 
               if (rttov_configs(i) % Lrttov_rad .and. ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer))) then
-                  call addfld ("rttov_rad_clear_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),     &
+                  call addfld ('rttov_rad_clear_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),     &
                                'A',                                 &
                                'mW/cm-1/sr/m2',                     &
                                'RTTOV Clear-sky Radiance',          &
                                flag_xyfill=.true.,                  &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_rad_clear_inst"//trim(i_str),cosp_histfile_num,' ')
-                  call addfld ("rttov_rad_cloudy_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),      &
+                  call add_default ('rttov_rad_clear_inst'//trim(i_str),cosp_histfile_num,' ')
+                  call addfld ('rttov_rad_cloudy_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),      &
                                'A',                                  &
                                'mW/cm-1/sr/m2',                      &
                                'RTTOV Cloudy-sky Radiance',          &
                                flag_xyfill=.true.,                   &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_rad_cloudy_inst"//trim(i_str),cosp_histfile_num,' ')                  
+                  call add_default ('rttov_rad_cloudy_inst'//trim(i_str),cosp_histfile_num,' ')                  
               end if
 
               if (rttov_configs(i) % Lrttov_refl) then
-                  call addfld ("rttov_refl_total_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),      &
+                  call addfld ('rttov_refl_total_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),      &
                                'A',                                  &
                                '1',                                  &
                                'RTTOV All-sky Reflectance',          &
                                flag_xyfill=.true.,                   &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_refl_total_inst"//trim(i_str),cosp_histfile_num,' ')                  
+                  call add_default ('rttov_refl_total_inst'//trim(i_str),cosp_histfile_num,' ')                  
               end if
 
               if (rttov_configs(i) % Lrttov_refl .and. ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer))) then
-                  call addfld ("rttov_refl_clear_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),      &
+                  call addfld ('rttov_refl_clear_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),      &
                                'A',                                  &
                                '1',                                  &
                                'RTTOV Clear-sky Reflectance',        &
                                flag_xyfill=.true.,                   &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_refl_clear_inst"//trim(i_str),cosp_histfile_num,' ')                  
+                  call add_default ('rttov_refl_clear_inst'//trim(i_str),cosp_histfile_num,' ')                  
               end if
           else
               if (rttov_configs(i) % Lrttov_bt) then   
-                  call addfld ("rttov_btpc_clr_inst"//trim(i_str),       &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),             &
+                  call addfld ('rttov_btpc_clr_inst'//trim(i_str),       &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),             &
                                'A',                                         & 
                                'Degrees Kelvin',                            & 
                                'PC-RTTOV Clear-sky Brightness Temperature', &
                                flag_xyfill=.true.,                          &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_btpc_clr_inst"//trim(i_str),cosp_histfile_num,' ')
+                  call add_default ('rttov_btpc_clr_inst'//trim(i_str),cosp_histfile_num,' ')
               end if
 
               if (rttov_configs(i) % Lrttov_rad) then
-                  call addfld ("rttov_radpc_clr_inst"//trim(i_str), &
-                               (/"RTTOV_CHAN_I"//trim(i_str)/),        &
+                  call addfld ('rttov_radpc_clr_inst'//trim(i_str), &
+                               (/'RTTOV_CHAN_I'//trim(i_str)/),        &
                                'A',                                    & 
                                'mW/cm-1/sr/m2',                        &
                                'PC-RTTOV Clear-sky Radiance',          &
                                flag_xyfill=.true.,                     &
                                fill_value=R_UNDEF)
-                  call add_default ("rttov_radpc_clr_inst"//trim(i_str),cosp_histfile_num,' ')
+                  call add_default ('rttov_radpc_clr_inst'//trim(i_str),cosp_histfile_num,' ')
               end if
            end if 
        end do     
@@ -1794,22 +1797,22 @@ CONTAINS
     do i=1,rttov_Ninstruments
         write (i_str,fmt) i ! converting integer to string i_str using a 'internal file'
         do k=1,nf_rttov
-            fname_rttov(i,:) = (/"rttov_bt_total_inst"//trim(i_str),     &
-                                 "rttov_bt_clear_inst"//trim(i_str),     &
-                                 "rttov_rad_total_inst"//trim(i_str),    &
-                                 "rttov_rad_clear_inst"//trim(i_str),    &
-                                 "rttov_rad_cloudy_inst"//trim(i_str),   &
-                                 "rttov_refl_total_inst"//trim(i_str),   &
-                                 "rttov_refl_clear_inst"//trim(i_str),   &
-                                 "rttov_btpc_clr_inst"//trim(i_str),     &
-                                 "rttov_radpc_clr_inst"//trim(i_str) /)
+            fname_rttov(i,:) = (/'rttov_bt_total_inst'//trim(i_str),     &
+                                 'rttov_bt_clear_inst'//trim(i_str),     &
+                                 'rttov_rad_total_inst'//trim(i_str),    &
+                                 'rttov_rad_clear_inst'//trim(i_str),    &
+                                 'rttov_rad_cloudy_inst'//trim(i_str),   &
+                                 'rttov_refl_total_inst'//trim(i_str),   &
+                                 'rttov_refl_clear_inst'//trim(i_str),   &
+                                 'rttov_btpc_clr_inst'//trim(i_str),     &
+                                 'rttov_radpc_clr_inst'//trim(i_str) /)
         end do
     end do 
     
     
     ! Allocate the DDT for the RTTOV outputs (bleh?)
     if (lrttov_sim) then
-        call t_startf("allocate rttov_outputs_cp")
+        call t_startf('allocate rttov_outputs_cp')
         do i=1,rttov_Ninstruments
             rttov_outputs_cp(i) % nchan_out = rttov_configs(i) % nchan_out
             ! Only allocate output if the output has been requested?
@@ -1843,10 +1846,10 @@ CONTAINS
                 end if
             end if        
         end do
-        call t_stopf("allocate rttov_outputs_cp")
+        call t_stopf('allocate rttov_outputs_cp')
     end if
 
-    call t_startf("init_and_stuff")
+    call t_startf('init_and_stuff')
     ! ######################################################################################
     ! Initialization
     ! ######################################################################################
@@ -2436,7 +2439,7 @@ CONTAINS
           endif
        enddo
     endif
-    call t_stopf("init_and_stuff")
+    call t_stopf('init_and_stuff')
 
     ! ######################################################################################
     ! ######################################################################################
@@ -2448,19 +2451,19 @@ CONTAINS
     ! Construct COSP output derived type.
     ! ######################################################################################
     
-    call t_startf("construct_cosp_outputs")
+    call t_startf('construct_cosp_outputs')
     if (allocated(rttov_configs)) then
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT,rttov_configs)
     else
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT)
     end if
-    call t_stopf("construct_cosp_outputs")
+    call t_stopf('construct_cosp_outputs')
     
     ! ######################################################################################
     ! Construct and populate COSP input types
     ! ######################################################################################
     ! Model state
-    call t_startf("construct_cospstateIN")
+    call t_startf('construct_cospstateIN')
     call construct_cospstateIN(ncol,pver,cospstateIN)      
     cospstateIN%lat                            = lat_cosp(1:ncol)
     cospstateIN%lon                            = lon_cosp(1:ncol) 
@@ -2544,21 +2547,22 @@ CONTAINS
     ! Combine large-scale and convective cloud effective radii into effective diameters for RTTOV
     ! Reff(Npoints,Nlevels,N_HYDRO)
     ! The weighted Reff is given by: Reff_net = (M_1 + M_2) / (M_1/Reff_1 + M_2/Reff_2)
+    ! Multiply by 2 to go from radius to diameter, multiply 1e6 to go from meters to microns.
     cospstateIN%DeffLiq(:,:) = 0._r8 ! Initialize for zero everywhere.
     where ((mr_lsliq(1:ncol,1:pver) .gt. 0._r8) .and. (mr_ccliq(1:ncol,1:pver) .gt. 0._r8))
         cospstateIN%DeffLiq(:,:) = 2._r8 * 1.0e6 * (mr_lsliq(1:ncol,1:pver) + mr_ccliq(1:ncol,1:pver)) / (mr_lsliq(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_LSCLIQ) + mr_ccliq(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_CVCLIQ))          
-    elsewhere (mr_lsliq(1:ncol,1:pver) .gt. 0._r8)
+    else where (mr_lsliq(1:ncol,1:pver) .gt. 0._r8)
         cospstateIN%DeffLiq(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_LSCLIQ)
-    elsewhere (mr_ccliq(:,Nlevels:1:-1) .gt. 0._r8)
+    else where (mr_ccliq(:,Nlevels:1:-1) .gt. 0._r8)
         cospstateIN%DeffLiq(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_CVCLIQ)
     end where
 
     cospstateIN%DeffIce(:,:) = 0._r8 ! Initialize for zero everywhere.
     where ((mr_lsice(1:ncol,1:pver) .gt. 0._r8) .and. (mr_ccice(1:ncol,1:pver) .gt. 0._r8))
         cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * (mr_lsice(1:ncol,1:pver) + mr_ccice(1:ncol,1:pver)) / (mr_lsice(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_LSCICE) + mr_ccice(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_CVCICE))          
-    elsewhere (mr_lsice(1:ncol,1:pver) .gt. 0._r8)
+    else where (mr_lsice(1:ncol,1:pver) .gt. 0._r8)
         cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_LSCICE)
-    elsewhere (mr_ccice(1:ncol,1:pver) .gt. 0._r8)
+    else where (mr_ccice(1:ncol,1:pver) .gt. 0._r8)
         cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_CVCICE)
     end where    
           
@@ -2574,7 +2578,7 @@ CONTAINS
 !    cospstateIN%t2m                         = cam_in%tref(1:ncol)
 !    cospstateIN%q2m                         = cam_in%qref(1:ncol)
     
-    call t_stopf("construct_cospstateIN")
+    call t_stopf('construct_cospstateIN')
 
 !    if (masterproc) then
 !       if (docosp) then 
@@ -2592,7 +2596,7 @@ CONTAINS
     end if 
     
     ! Optical inputs
-    call t_startf("construct_cospIN")
+    call t_startf('construct_cospIN')
     call construct_cospIN(ncol,nscol_cosp,pver,rttov_Ninstruments,cospIN,emis_grey=1.0_r8) ! JKS apply unitary blackbody surface emissivity to be consistent with CESM physics
     cospIN%emsfc_lw      = emsfc_lw
     if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)
@@ -2604,7 +2608,7 @@ CONTAINS
     end if         
     
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
-    call t_stopf("construct_cospIN") 
+    call t_stopf('construct_cospIN') 
     
     if (masterproc) then
        if (docosp) then 
@@ -2614,7 +2618,7 @@ CONTAINS
 
     ! *NOTE* Fields passed into subsample_and_optics are ordered from TOA-2-SFC.
     if (lradar_sim .or. (llidar_sim .or. (lisccp_sim .or. (lmisr_sim .or. lmodis_sim)))) then ! RTTOV does not use subsample_and_optics
-        call t_startf("subsample_and_optics")
+        call t_startf('subsample_and_optics')
         call subsample_and_optics(ncol,pver,nscol_cosp,nhydro,overlap,             &
              use_precipitation_fluxes,lidar_ice_type,sd_cs(lchnk),cld(1:ncol,1:pver),&
              concld(1:ncol,1:pver),rain_ls_interp(1:ncol,1:pver),                  &
@@ -2626,7 +2630,7 @@ CONTAINS
              dtau_s(1:ncol,1:pver),dem_c(1:ncol,1:pver),                           &
              dem_s(1:ncol,1:pver),dtau_s_snow(1:ncol,1:pver),                      &
              dem_s_snow(1:ncol,1:pver),state%ps(1:ncol),cospstateIN,cospIN)
-        call t_stopf("subsample_and_optics")
+        call t_stopf('subsample_and_optics')
     end if
 
     if (masterproc) then
@@ -2638,7 +2642,7 @@ CONTAINS
     ! ######################################################################################
     ! Call COSP
     ! ######################################################################################
-    call t_startf("cosp_simulator")
+    call t_startf('cosp_simulator')
     cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.false.) 
 
     if (masterproc) then
@@ -2651,19 +2655,19 @@ CONTAINS
     nerror = 0
     do i = 1, ubound(cosp_status, 1)
        if (len_trim(cosp_status(i)) > 0) then
-          write(iulog,*) "cosp_simulator: ERROR: "//trim(cosp_status(i))
+          write(iulog,*) 'cosp_simulator: ERROR: '//trim(cosp_status(i))
           nerror = nerror + 1
        end if
     end do
     if (nerror > 0) then
        call endrun('cospsimulator_intr_run: error return from cosp_simulator')
     end if
-    call t_stopf("cosp_simulator")
+    call t_stopf('cosp_simulator')
   
     ! ######################################################################################
     ! Write COSP inputs to output file for offline use.
     ! ######################################################################################
-    call t_startf("cosp_histfile_aux")
+    call t_startf('cosp_histfile_aux')
     if (cosp_histfile_aux) then
        ! 1D outputs
        call outfld('PS_COSP',        state%ps(1:ncol),             ncol,lchnk)
@@ -2697,12 +2701,12 @@ CONTAINS
        call outfld('MODIS_ssa',    ssa34_out,  pcols,lchnk)
        call outfld('MODIS_fracliq',fracLiq_out,pcols,lchnk)
     end if
-    call t_stopf("cosp_histfile_aux")
+    call t_stopf('cosp_histfile_aux')
 
     ! ######################################################################################
     ! Set dark-scenes to fill value. Only done for passive simulators and when cosp_runall=F
     ! ######################################################################################
-    call t_startf("sunlit_passive")
+    call t_startf('sunlit_passive')
     if (.not. cosp_runall) then
        ! ISCCP simulator
        if (lisccp_sim) then
@@ -3040,7 +3044,7 @@ CONTAINS
     ! ######################################################################################
 
 !    call t_startf("rttov_cleanup")
-!    call rttov_cleanup(cospIN) ! Just break things to get diagnostics. Not really code. - JKS
+   !  call rttov_cleanup(cospIN) ! Just break things to get diagnostics. Not really code. - JKS
 !    call t_stopf("rttov_cleanup")
     call t_startf("destroy_cospIN")
     call destroy_cospIN(cospIN)
@@ -3339,29 +3343,29 @@ CONTAINS
           write (i_str,fmt) i ! converting integer to string i_str using a 'internal file'
           if (rttov_configs(i) % Lrttov_pc) then
              if (rttov_configs(i) % Lrttov_bt) then
-                call outfld("rttov_btpc_clr_inst"//trim(i_str),rttov_outputs_cp(i) % bt_total_pc,pcols,lchnk)
+                call outfld('rttov_btpc_clr_inst'//trim(i_str),rttov_outputs_cp(i) % bt_total_pc,pcols,lchnk)
              end if
              if (rttov_configs(i) % Lrttov_rad) then
-                call outfld("rttov_radpc_clr_inst"//trim(i_str),rttov_outputs_cp(i) % rad_total_pc,pcols,lchnk)
+                call outfld('rttov_radpc_clr_inst'//trim(i_str),rttov_outputs_cp(i) % rad_total_pc,pcols,lchnk)
              end if
           else
              if (rttov_configs(i) % Lrttov_bt) then
-                call outfld("rttov_bt_total_inst"//trim(i_str),rttov_outputs_cp(i) % bt_total,pcols,lchnk)
+                call outfld('rttov_bt_total_inst'//trim(i_str),rttov_outputs_cp(i) % bt_total,pcols,lchnk)
                 if ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer)) then
-                   call outfld("rttov_bt_clear_inst"//trim(i_str),rttov_outputs_cp(i) % bt_clear,pcols,lchnk)
+                   call outfld('rttov_bt_clear_inst'//trim(i_str),rttov_outputs_cp(i) % bt_clear,pcols,lchnk)
                 end if
              end if
              if (rttov_configs(i) % Lrttov_rad) then
-                call outfld("rttov_rad_total_inst"//trim(i_str),rttov_outputs_cp(i) % rad_total,pcols,lchnk)
+                call outfld('rttov_rad_total_inst'//trim(i_str),rttov_outputs_cp(i) % rad_total,pcols,lchnk)
                 if ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer)) then
-                   call outfld("rttov_rad_clear_inst"//trim(i_str),rttov_outputs_cp(i) % rad_clear,pcols,lchnk)
-                   call outfld("rttov_rad_cloudy_inst"//trim(i_str),rttov_outputs_cp(i) % rad_cloudy,pcols,lchnk)
+                   call outfld('rttov_rad_clear_inst'//trim(i_str),rttov_outputs_cp(i) % rad_clear,pcols,lchnk)
+                   call outfld('rttov_rad_cloudy_inst'//trim(i_str),rttov_outputs_cp(i) % rad_cloudy,pcols,lchnk)
                 end if
              end if
              if (rttov_configs(i) % Lrttov_refl) then
-                call outfld("rttov_refl_total_inst"//trim(i_str),rttov_outputs_cp(i) % refl_total,pcols,lchnk)
+                call outfld('rttov_refl_total_inst'//trim(i_str),rttov_outputs_cp(i) % refl_total,pcols,lchnk)
                 if ((rttov_configs(i) % Lrttov_cld) .or. (rttov_configs(i) % Lrttov_aer)) then
-                   call outfld("rttov_refl_clear_inst"//trim(i_str),rttov_outputs_cp(i) % refl_clear,pcols,lchnk)
+                   call outfld('rttov_refl_clear_inst'//trim(i_str),rttov_outputs_cp(i) % refl_clear,pcols,lchnk)
                 end if
              end if          
           end if
