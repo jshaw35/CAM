@@ -52,6 +52,8 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    use mcica_subcol_gen_lw, only: mcica_subcol_lw
    use physconst,           only: cpair
    use rrtmg_state,         only: rrtmg_state_t
+   
+   use wv_saturation,    only: qsat, qsat_water ! JKS add subroutine to determine WV saturation
 
 !------------------------------Arguments--------------------------------
 !
@@ -108,6 +110,8 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    real(r8) :: taua_lw(pcols,rrtmg_levs-1,nbndlw)     ! aerosol optical depth by band
 
    real(r8), parameter :: dps = 1._r8/86400._r8 ! Inverse of seconds per day
+   
+   real(r8), parameter :: amdw = 1.607793_r8    ! JKS - Molecular weight of dry air / water vapor
 
    ! Cloud arrays for McICA 
    integer, parameter :: nsubclw = ngptlw       ! rrtmg_lw g-point (quadrature point) dimension
@@ -134,6 +138,24 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    real(r8) :: hrc(pcols,rrtmg_levs)     ! Clear sky longwave heating rate (K/d)
    real(r8) lwuflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux up
    real(r8) lwdflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux down
+   
+   ! JKS - duplicate RRTMG_LW outputs:
+   real(r8) :: uflx_temp(pcols,rrtmg_levs+1)  ! Total upwards longwave flux
+   real(r8) :: uflxc_temp(pcols,rrtmg_levs+1) ! Clear sky upwards longwave flux
+   real(r8) :: dflx_temp(pcols,rrtmg_levs+1)  ! Total downwards longwave flux
+   real(r8) :: dflxc_temp(pcols,rrtmg_levs+1) ! Clear sky downwards longwv flux
+   real(r8) :: hr_temp(pcols,rrtmg_levs)      ! Longwave heating rate (K/d)
+   real(r8) :: hrc_temp(pcols,rrtmg_levs)     ! Clear sky longwave heating rate (K/d)
+   real(r8) lwuflxs_temp(nbndlw,pcols,pverp+1)  ! Longwave spectral flux up
+   real(r8) lwdflxs_temp(nbndlw,pcols,pverp+1)  ! Longwave spectral flux down   
+   
+   ! JKS - For clear-sky WV repartitioning
+   real(r8) :: es_temp(pcols,rrtmg_levs)         ! Saturation vapor pressure
+   real(r8) :: qs_temp(pcols,rrtmg_levs)         ! Saturation specific humidity (kg/kg)
+   real(r8) :: h2ovmr_sat(pcols,rrtmg_levs)      ! WV saturation volume mixing ratio
+   real(r8) :: h2ovmr_cld(pcols,rrtmg_levs)      ! WV cloudy-sky volume mixing ratio on subcolumns
+   real(r8) :: h2ovmr_clr(pcols,rrtmg_levs)      ! WV clear-sky volume mixing ratio on subcolumns
+   
    !-----------------------------------------------------------------------
 
    ! mji/rrtmg
@@ -186,16 +208,123 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    taua_lw(:ncol, 1:rrtmg_levs-1, :nbndlw) = aer_lw_abs(:ncol,pverp-rrtmg_levs+1:pverp-1,:nbndlw)
 
    if (associated(lu)) lu(1:ncol,:,:) = 0.0_r8
-   if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8
+   if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8   
+   
+! Original call to rrtmg_lw:
+!   call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
+!        r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, &
+!        r_state%o3vmr   ,r_state%co2vmr  ,r_state%ch4vmr  ,r_state%o2vmr   ,r_state%n2ovmr  ,r_state%cfc11vmr,r_state%cfc12vmr, &
+!        r_state%cfc22vmr,r_state%ccl4vmr ,emis    ,&
+!        cld_stolw,tauc_stolw,cicewp_stolw,cliqwp_stolw ,rei, rel, &
+!        taua_lw, &
+!        uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, &
+!        lwuflxs, lwdflxs)
 
+!  Identical call to rrtmg_lw but with new arguments repeated
    call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
-        r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, &
+        r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc ,r_state%h2ovmr, r_state%h2ovmr, r_state%h2ovmr, &
         r_state%o3vmr   ,r_state%co2vmr  ,r_state%ch4vmr  ,r_state%o2vmr   ,r_state%n2ovmr  ,r_state%cfc11vmr,r_state%cfc12vmr, &
         r_state%cfc22vmr,r_state%ccl4vmr ,emis    ,&
         cld_stolw,tauc_stolw,cicewp_stolw,cliqwp_stolw ,rei, rel, &
         taua_lw, &
-        uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, &
-        lwuflxs, lwdflxs)
+        .false.,  &
+        uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, & ! JKS - outputs here and below
+!        uflx_temp    ,dflx_temp    ,hr_temp      ,uflxc_temp   ,dflxc_temp   ,hrc_temp, &
+        lwuflxs, lwdflxs)   
+
+   write(iulog,*) 'Ran new rrtmg_lw subroutine with repeated old values'
+   write(iulog,*) 'dflx_temp (normal):  ',dflx_temp(1,:)
+   write(iulog,*) 'dflxc_temp (normal):  ',dflxc_temp(1,:)
+   write(iulog,*) 'uflx_temp (normal):  ',uflx_temp(1,:)
+   write(iulog,*) 'uflxc_temp (normal):  ',uflxc_temp(1,:)
+
+   ! JKS - order of operations.
+   !   1. Compute the WV saturation specific humidity over the column levels.
+   !   2. Convert to a saturation vmr, equivalent to the in-cloud H2O vmr
+   !   3. Compute the residual clear-sky H2O vmr
+   !   4. Call rrtmg_lw with the clear-sky H2O values
+       
+   call t_startf('rrtmg_lw_clr')
+   
+   ! Repartition WV into both cloudy and clear components for each column.
+   do i = 1,ncol ! Iterate over model gridcells. Note: ncol is the number of columns a chunk is actually using, pcols is maximum number
+      do k = 1,rrtmg_levs ! Iterate over model levels
+         kk = max(k + (pverp-rrtmg_levs)-1,1) ! Convert between the vertical coordinates of rstate (k) and pstate (kk)
+         if (cld(i,kk) .lt. 0.01 .or. cld(i,kk) .gt. 0.99) then ! There is no repartitioning in a totally clear or cloudy layer.
+            h2ovmr_clr(i,k) = r_state%h2ovmr(i,k)         
+            h2ovmr_cld(i,k) = r_state%h2ovmr(i,k)
+            cycle ! skip rest of the do loop, no need to repartition
+         end if
+         !   1. Compute the WV saturation specific humidity over the column levels. Using r_state levels (k)
+         ! Use level midpoint rather than interfaces
+         call qsat_water(r_state%tlay(i,k),r_state%pmidmb(i,k)* 1.e2_r8,es_temp(i,k),qs_temp(i,k))
+         !   2. Convert to a saturation vmr, equivalent to the in-cloud H2O vmr. Using r_state levels (k).
+         h2ovmr_sat(i,k) = qs_temp(i,k) / (1._r8 - qs_temp(i,k)) * amdw
+         if (r_state%h2ovmr(i,k) .gt. h2ovmr_sat(i,k)) then ! If the column is super-saturated, do not repartition.
+            h2ovmr_clr(i,k) = r_state%h2ovmr(i,k)         
+            h2ovmr_cld(i,k) = r_state%h2ovmr(i,k)
+            cycle ! skip rest of the do loop, no need to repartition
+         end if         
+         !   3. Compute the cloudy and clear sky WV vmr.
+         ! If there is not enough WV in the column to saturate the cloudy fraction, instead use all of the remaining WV for the cloudy column.
+         ! Cloudy-first version (newer)
+         h2ovmr_cld(i,k) = min(h2ovmr_sat(i,k),r_state%h2ovmr(i,k) / cld(i,kk))
+         ! Repartition any remaining WV into the clear column. Arbitrary lower limit here.
+         h2ovmr_clr(i,k) = max((r_state%h2ovmr(i,k) - cld(i,kk) * h2ovmr_cld(i,k)) / (1 - cld(i,kk)),1.0e-8_r8) ! arbitrary lower limit of 1e-8
+         
+         ! Clear-first version (but this will make the clear-sky artificial moist if the column is super-saturated w.r.t. water.
+         !h2ovmr_clr(i,k) = max((r_state%h2ovmr(i,k) - (h2ovmr_sat(i,k) * cld(i,kk))) / (1 - cld(i,kk)),1.0e-8_r8) ! arbitrary lower limit of 1e-8
+      end do
+   end do   
+
+   if (masterproc) then
+!      write(iulog,*) 'r_state%tlay(1,:) =',r_state%tlay(1,:)
+!      write(iulog,*) 'r_state%pmidmb(1,:) =',r_state%pmidmb(1,:)
+!      write(iulog,*) 'es_temp(1,:) =',es_temp(1,:)
+!      write(iulog,*) 'qs_temp(1,:) (sp. hum.) =',qs_temp(1,:)
+      write(iulog,*) 'h2ovmr_sat(1,:) =',h2ovmr_sat(1,:)
+      write(iulog,*) 'h2ovmr_clr(1,:) =',h2ovmr_clr(1,:)
+      write(iulog,*) 'h2ovmr_cld(1,:) =',h2ovmr_cld(1,:)
+      write(iulog,*) 'r_state%h2ovmr(1,:) =',r_state%h2ovmr(1,:)
+      write(iulog,*) 'r_state%h2ovmr(1,:) / h2ovmr_sat(1,:) =',r_state%h2ovmr(1,:) / h2ovmr_sat(1,:)
+      write(iulog,*) 'cld(1,:) =',cld(1,:)
+   endif 
+
+   !   4. Call rrtmg_lw now passing the new clear- and cloudy-sky h2ovmrs
+   ! Remove "_temp" values for clear-sky variables to make interactive
+  if (masterproc) then
+     call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
+          r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, h2ovmr_clr, h2ovmr_cld, &
+          r_state%o3vmr   ,r_state%co2vmr  ,r_state%ch4vmr  ,r_state%o2vmr   ,r_state%n2ovmr  ,r_state%cfc11vmr,r_state%cfc12vmr, &
+          r_state%cfc22vmr,r_state%ccl4vmr ,emis    ,&
+          cld_stolw,tauc_stolw,cicewp_stolw,cliqwp_stolw ,rei, rel, &
+          taua_lw, &
+          .true.,  &
+          uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, & ! JKS - outputs here and below
+         !  uflx_temp    ,dflx_temp    ,hr_temp      ,uflxc_temp   ,dflxc_temp   ,hrc_temp, &
+          lwuflxs, lwdflxs)
+  else
+     call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
+          r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, h2ovmr_clr, h2ovmr_cld, &
+          r_state%o3vmr   ,r_state%co2vmr  ,r_state%ch4vmr  ,r_state%o2vmr   ,r_state%n2ovmr  ,r_state%cfc11vmr,r_state%cfc12vmr, &
+          r_state%cfc22vmr,r_state%ccl4vmr ,emis    ,&
+          cld_stolw,tauc_stolw,cicewp_stolw,cliqwp_stolw ,rei, rel, &
+          taua_lw, &
+          .false.,  &
+          uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, & ! JKS - outputs here and below
+         !  uflx_temp    ,dflx_temp    ,hr_temp      ,uflxc_temp   ,dflxc_temp   ,hrc_temp, &
+          lwuflxs, lwdflxs)   
+  end if
+
+!   if (masterproc) then
+!      write(iulog,*) 'Ran new rrtmg_lw subroutine with repartitioned values non-interactive'
+!      write(iulog,*) 'dflx_temp:  ',dflx_temp(1,:)
+!      write(iulog,*) 'dflxc_temp:  ',dflxc_temp(1,:)
+!      write(iulog,*) 'uflx_temp:  ',uflx_temp(1,:)
+!      write(iulog,*) 'uflxc_temp:  ',uflxc_temp(1,:)
+!   endif 
+        
+   call t_stopf('rrtmg_lw_clr')
 
    !
    !----------------------------------------------------------------------
