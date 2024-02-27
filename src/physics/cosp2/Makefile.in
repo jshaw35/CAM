@@ -56,7 +56,8 @@ endif
 # Copy the RTTOV libraries to the current location (which is the EXEROOT/the case bld directory
 ifdef RTTOV
 libcosp.a: $(OBJS)
-	cp $(RTTOVDIR)/alt_build/lib/*.a .  
+	#cp $(RTTOVDIR)/alt_build/lib/*.a .   # Old version 
+	cp $(RTTOVDIR)/lib/*.a .  
 	ar cr libcosp.a $(OBJS)
 else
 libcosp.a: $(OBJS)

@@ -19,13 +19,17 @@
 # -----------------------------------------------------------------------------
 
 
-# Update to provide path to RTTOV source code
-RTTOVDIR=/glade/work/jonahshaw/RTTOV
+# Older settings.
+#RTTOVDIR=/glade/work/jonahshaw/RTTOV
+#FC=gfortran
+#FFLAGS= -I$(RTTOVDIR)/mod -I$(RTTOVDIR)/include -fPIC -O3 -fopenmp
+#LDFLAGS_ARCH=-fopenmp
 
-FC=gfortran
+# Derecho with debug changes (01/23/2024)
+RTTOVDIR=/glade/u/home/jonahshaw/w/RTTOV2
+FC=ifort
 FFLAGS= -I$(RTTOVDIR)/mod -I$(RTTOVDIR)/include -fPIC -O3 -fopenmp
 LDFLAGS_ARCH=-fopenmp
-
 
 RTTOV_VERSION=13
 EXT_BIN=.exe
@@ -37,8 +41,6 @@ BINDIR=$(RTTOVDIR)/bin
 
 #### Do not edit beyond this line ####
 
-# JKS - should this be $(RTTOVDIR)/build/Makefile.local   ?
-# include ../../build/Makefile.local
 include $(RTTOVDIR)/build/Makefile.local
 
 LIBDIR=$(RTTOVDIR)/lib
