@@ -53,7 +53,7 @@ else
 OBJS += cosp_rttov_interfaceSTUB.o cosp_rttovSTUB.o
 endif
 
-# Copy the RTTOV libraries to the current location (which is the EXEROOT/the case bld directory
+# Copy the RTTOV libraries to the current location (which is the EXEROOT/the case bld directory)
 ifdef RTTOV
 libcosp.a: $(OBJS)
 	#cp $(RTTOVDIR)/alt_build/lib/*.a .   # Old version 

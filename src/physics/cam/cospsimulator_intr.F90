@@ -542,6 +542,28 @@ CONTAINS
        call freeunit(unitn)
     end if
 
+   !  Indexing order for "cospIN % cospswathsIN" is ISCCP, MISR, CLOUDSAT-CALIPSO, ATLID, PARASOL, MODIS
+    if (masterproc) then
+       cospswathsIN(1)%N_inst_swaths                             = N_SWATHS_ISCCP
+       cospswathsIN(1)%inst_localtimes(1:N_SWATHS_ISCCP)         = SWATH_LOCALTIMES_ISCCP
+       cospswathsIN(1)%inst_localtime_widths(1:N_SWATHS_ISCCP)   = SWATH_WIDTHS_ISCCP
+       cospswathsIN(2)%N_inst_swaths                             = N_SWATHS_MISR
+       cospswathsIN(2)%inst_localtimes(1:N_SWATHS_MISR)          = SWATH_LOCALTIMES_MISR
+       cospswathsIN(2)%inst_localtime_widths(1:N_SWATHS_MISR)    = SWATH_WIDTHS_MISR
+       cospswathsIN(3)%N_inst_swaths                             = N_SWATHS_CSCAL
+       cospswathsIN(3)%inst_localtimes(1:N_SWATHS_CSCAL)         = SWATH_LOCALTIMES_CSCAL
+       cospswathsIN(3)%inst_localtime_widths(1:N_SWATHS_CSCAL)   = SWATH_WIDTHS_CSCAL
+       cospswathsIN(4)%N_inst_swaths                             = N_SWATHS_ATLID
+       cospswathsIN(4)%inst_localtimes(1:N_SWATHS_ATLID)         = SWATH_LOCALTIMES_ATLID
+       cospswathsIN(4)%inst_localtime_widths(1:N_SWATHS_ATLID)   = SWATH_WIDTHS_ATLID
+       cospswathsIN(5)%N_inst_swaths                             = N_SWATHS_PARASOL
+       cospswathsIN(5)%inst_localtimes(1:N_SWATHS_PARASOL)       = SWATH_LOCALTIMES_PARASOL
+       cospswathsIN(5)%inst_localtime_widths(1:N_SWATHS_PARASOL) = SWATH_WIDTHS_PARASOL
+       cospswathsIN(6)%N_inst_swaths                             = N_SWATHS_MODIS
+       cospswathsIN(6)%inst_localtime_widths(1:N_SWATHS_MODIS)   = SWATH_WIDTHS_MODIS
+       cospswathsIN(6)%inst_localtimes(1:N_SWATHS_MODIS)         = SWATH_LOCALTIMES_MODIS
+    end if
+
 #ifdef SPMD
     ! Broadcast namelist variables
     call mpibcast(docosp,               1,  mpilog, 0, mpicom)
@@ -968,39 +990,39 @@ CONTAINS
        call addfld('CLDLOW_CAL_UN',horiz_only,'A','percent','Calipso Low-level Undefined-Phase Cloud Fraction',  &
             flag_xyfill=.true., fill_value=R_UNDEF)
     
-!       ! Calipso Opaque/thin cloud diagnostics
-      ! call addfld('CLDOPQ_CAL',      horiz_only,    'A', 'percent', 'CALIPSO Opaque Cloud Cover',       &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL',      horiz_only,    'A', 'percent', 'CALIPSO Thin Cloud Cover',         &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDZOPQ_CAL',     horiz_only,    'A', 'm',       'CALIPSO z_opaque Altitude',        &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDOPQ_CAL_2D',   (/'cosp_ht'/), 'A', 'percent', 'CALIPSO Opaque Cloud Fraction',    & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL_2D',   (/'cosp_ht'/), 'A', 'percent', 'CALIPSO Thin Cloud Fraction',      & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDZOPQ_CAL_2D',  (/'cosp_ht'/), 'A', 'percent', 'CALIPSO z_opaque Fraction',        & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('OPACITY_CAL_2D',  (/'cosp_ht'/), 'A', 'percent', 'CALIPSO opacity Fraction',         &  
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDOPQ_CAL_TMP',  horiz_only,    'A', 'K',       'CALIPSO Opaque Cloud Temperature', & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL_TMP',  horiz_only,    'A', 'K',       'CALIPSO Thin Cloud Temperature',   & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDZOPQ_CAL_TMP', horiz_only,    'A', 'K',       'CALIPSO z_opaque Temperature',     & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDOPQ_CAL_Z',    horiz_only,    'A', 'm',       'CALIPSO Opaque Cloud Altitude',    & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL_Z',    horiz_only,    'A', 'm',       'CALIPSO Thin Cloud Altitude',      & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL_EMIS', horiz_only,    'A', '1',       'CALIPSO Thin Cloud Emissivity',    & 
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDOPQ_CAL_SE',   horiz_only,    'A', 'm',       'CALIPSO Opaque Cloud Altitude with respect to surface-elevation', &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDTHN_CAL_SE',   horiz_only,    'A', 'm',       'CALIPSO Thin Cloud Altitude with respect to surface-elevation', &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
-      ! call addfld('CLDZOPQ_CAL_SE',  horiz_only,    'A', 'm',       'CALIPSO z_opaque Altitude with respect to surface-elevation', &
-      !      flag_xyfill=.true., fill_value=R_UNDEF)
+       ! Calipso Opaque/thin cloud diagnostics
+       call addfld('CLDOPQ_CAL',      horiz_only,    'A', 'percent', 'CALIPSO Opaque Cloud Cover',       &
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL',      horiz_only,    'A', 'percent', 'CALIPSO Thin Cloud Cover',         &
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDZOPQ_CAL',     horiz_only,    'A', 'm',       'CALIPSO z_opaque Altitude',        &
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDOPQ_CAL_2D',   (/'cosp_ht'/), 'A', 'percent', 'CALIPSO Opaque Cloud Fraction',    & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL_2D',   (/'cosp_ht'/), 'A', 'percent', 'CALIPSO Thin Cloud Fraction',      & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDZOPQ_CAL_2D',  (/'cosp_ht'/), 'A', 'percent', 'CALIPSO z_opaque Fraction',        & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('OPACITY_CAL_2D',  (/'cosp_ht'/), 'A', 'percent', 'CALIPSO opacity Fraction',         &  
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDOPQ_CAL_TMP',  horiz_only,    'A', 'K',       'CALIPSO Opaque Cloud Temperature', & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL_TMP',  horiz_only,    'A', 'K',       'CALIPSO Thin Cloud Temperature',   & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDZOPQ_CAL_TMP', horiz_only,    'A', 'K',       'CALIPSO z_opaque Temperature',     & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDOPQ_CAL_Z',    horiz_only,    'A', 'm',       'CALIPSO Opaque Cloud Altitude',    & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL_Z',    horiz_only,    'A', 'm',       'CALIPSO Thin Cloud Altitude',      & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL_EMIS', horiz_only,    'A', '1',       'CALIPSO Thin Cloud Emissivity',    & 
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDOPQ_CAL_SE',   horiz_only,    'A', 'm',       'CALIPSO Opaque Cloud Altitude with respect to surface-elevation', &
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDTHN_CAL_SE',   horiz_only,    'A', 'm',       'CALIPSO Thin Cloud Altitude with respect to surface-elevation', &
+            flag_xyfill=.true., fill_value=R_UNDEF)
+       call addfld('CLDZOPQ_CAL_SE',  horiz_only,    'A', 'm',       'CALIPSO z_opaque Altitude with respect to surface-elevation', &
+            flag_xyfill=.true., fill_value=R_UNDEF)
 
        ! add_default calls for CFMIP experiments or else all fields are added to history file
        !     except those with sub-column dimension/experimental variables
@@ -1027,22 +1049,22 @@ CONTAINS
        call add_default ('CLDLOW_CAL_ICE',cosp_histfile_num,' ')
        call add_default ('CLDLOW_CAL_LIQ',cosp_histfile_num,' ')
        call add_default ('CLDLOW_CAL_UN',cosp_histfile_num,' ')
-!          call add_default ('CLDOPQ_CAL',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL',cosp_histfile_num,' ')
-!          call add_default ('CLDZOPQ_CAL',cosp_histfile_num,' ')
-!          call add_default ('CLDOPQ_CAL_2D',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL_2D',cosp_histfile_num,' ')
-!          call add_default ('CLDZOPQ_CAL_2D',cosp_histfile_num,' ')
-!          call add_default ('OPACITY_CAL_2D',cosp_histfile_num,' ')
-!          call add_default ('CLDOPQ_CAL_TMP',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL_TMP',cosp_histfile_num,' ')
-!          call add_default ('CLDZOPQ_CAL_TMP',cosp_histfile_num,' ')
-!          call add_default ('CLDOPQ_CAL_Z',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL_Z',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL_EMIS',cosp_histfile_num,' ')
-!          call add_default ('CLDOPQ_CAL_SE',cosp_histfile_num,' ')
-!          call add_default ('CLDTHN_CAL_SE',cosp_histfile_num,' ')
-!          call add_default ('CLDZOPQ_CAL_SE',cosp_histfile_num,' ')
+       call add_default ('CLDOPQ_CAL',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL',cosp_histfile_num,' ')
+       call add_default ('CLDZOPQ_CAL',cosp_histfile_num,' ')
+       call add_default ('CLDOPQ_CAL_2D',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL_2D',cosp_histfile_num,' ')
+       call add_default ('CLDZOPQ_CAL_2D',cosp_histfile_num,' ')
+       call add_default ('OPACITY_CAL_2D',cosp_histfile_num,' ')
+       call add_default ('CLDOPQ_CAL_TMP',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL_TMP',cosp_histfile_num,' ')
+       call add_default ('CLDZOPQ_CAL_TMP',cosp_histfile_num,' ')
+       call add_default ('CLDOPQ_CAL_Z',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL_Z',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL_EMIS',cosp_histfile_num,' ')
+       call add_default ('CLDOPQ_CAL_SE',cosp_histfile_num,' ')
+       call add_default ('CLDTHN_CAL_SE',cosp_histfile_num,' ')
+       call add_default ('CLDZOPQ_CAL_SE',cosp_histfile_num,' ')
 
        if ((.not.cosp_amwg) .and. (.not.cosp_lite) .and. (.not.cosp_passive) .and. (.not.cosp_active) &
             .and. (.not.cosp_isccp)) then
@@ -1609,7 +1631,7 @@ CONTAINS
     ! Simulator output info
     ! ######################################################################################
     integer, parameter :: nf_radar=17                    ! number of radar outputs
-    integer, parameter :: nf_calipso=28                  ! number of calipso outputs
+    integer, parameter :: nf_calipso=44                  ! number of calipso outputs (28 w/o OPAQ, 44 w/ OPAQ)
     integer, parameter :: nf_isccp=9                     ! number of isccp outputs
     integer, parameter :: nf_misr=1                      ! number of misr outputs
     integer, parameter :: nf_modis=20                    ! number of modis outputs
@@ -1633,11 +1655,11 @@ CONTAINS
                          'CLD_CAL_ICE    ','CLD_CAL_UN     ','CLD_CAL_TMP    ','CLD_CAL_TMPLIQ ','CLD_CAL_TMPICE ',&
                          'CLD_CAL_TMPUN  ','CLDTOT_CAL_ICE ','CLDTOT_CAL_LIQ ','CLDTOT_CAL_UN  ','CLDHGH_CAL_ICE ',&
                          'CLDHGH_CAL_LIQ ','CLDHGH_CAL_UN  ','CLDMED_CAL_ICE ','CLDMED_CAL_LIQ ','CLDMED_CAL_UN  ',&
-                         'CLDLOW_CAL_ICE ','CLDLOW_CAL_LIQ ','CLDLOW_CAL_UN  '/)!,                                    &
-!                         'CLDOPQ_CAL     ','CLDTHN_CAL     ','CLDZOPQ_CAL    ','CLDOPQ_CAL_2D  ','CLDTHN_CAL_2D  ',&
-!                         'CLDZOPQ_CAL_2D ','OPACITY_CAL_2D ','CLDOPQ_CAL_TMP ','CLDTHN_CAL_TMP ','CLDZOPQ_CAL_TMP',&
-!                         'CLDOPQ_CAL_Z   ','CLDTHN_CAL_Z   ','CLDTHN_CAL_EMIS','CLDOPQ_CAL_SE  ','CLDTHN_CAL_SE  ',&
-!                         'CLDZOPQ_CAL_SE' /)
+                         'CLDLOW_CAL_ICE ','CLDLOW_CAL_LIQ ','CLDLOW_CAL_UN  ',                                    &
+                         'CLDOPQ_CAL     ','CLDTHN_CAL     ','CLDZOPQ_CAL    ','CLDOPQ_CAL_2D  ','CLDTHN_CAL_2D  ',&
+                         'CLDZOPQ_CAL_2D ','OPACITY_CAL_2D ','CLDOPQ_CAL_TMP ','CLDTHN_CAL_TMP ','CLDZOPQ_CAL_TMP',&
+                         'CLDOPQ_CAL_Z   ','CLDTHN_CAL_Z   ','CLDTHN_CAL_EMIS','CLDOPQ_CAL_SE  ','CLDTHN_CAL_SE  ',&
+                         'CLDZOPQ_CAL_SE' /)
     ! ISCCP outputs
     character(len=max_fieldname_len),dimension(nf_isccp),parameter :: &
          fname_isccp=(/'FISCCP1_COSP    ','CLDTOT_ISCCP    ','MEANCLDALB_ISCCP',&
@@ -1762,22 +1784,22 @@ CONTAINS
     real(r8) :: cld_cal_tmpliq(pcols,nht_cosp)           ! CAM (time,height,profile)
     real(r8) :: cld_cal_tmpice(pcols,nht_cosp)           ! CAM (time,height,profile)
     real(r8) :: cld_cal_tmpun(pcols,nht_cosp)            ! CAM (time,height,profile) !+cosp1.4
-    ! real(r8) :: cldopaq_cal(pcols)                       
-    ! real(r8) :: cldthin_cal(pcols)
-    ! real(r8) :: cldopaqz_cal(pcols)
-    ! real(r8) :: cldopaq_cal_temp(pcols)
-    ! real(r8) :: cldthin_cal_temp(pcols) 
-    ! real(r8) :: cldzopaq_cal_temp(pcols)
-    ! real(r8) :: cldopaq_cal_z(pcols)   
-    ! real(r8) :: cldthin_cal_z(pcols)   
-    ! real(r8) :: cldthin_cal_emis(pcols)
-    ! real(r8) :: cldopaq_cal_se(pcols)  
-    ! real(r8) :: cldthin_cal_se(pcols)
-    ! real(r8) :: cldzopaq_cal_se(pcols)
-    ! real(r8) :: cldopaq_cal_2d(pcols,nht_cosp)
-    ! real(r8) :: cldthin_cal_2d(pcols,nht_cosp)
-    ! real(r8) :: cldzopaq_cal_2d(pcols,nht_cosp) 
-    ! real(r8) :: opacity_cal_2d(pcols,nht_cosp) 
+    real(r8) :: cldopaq_cal(pcols)                       
+    real(r8) :: cldthin_cal(pcols)
+    real(r8) :: cldopaqz_cal(pcols)
+    real(r8) :: cldopaq_cal_temp(pcols)
+    real(r8) :: cldthin_cal_temp(pcols) 
+    real(r8) :: cldzopaq_cal_temp(pcols)
+    real(r8) :: cldopaq_cal_z(pcols)   
+    real(r8) :: cldthin_cal_z(pcols)   
+    real(r8) :: cldthin_cal_emis(pcols)
+    real(r8) :: cldopaq_cal_se(pcols)  
+    real(r8) :: cldthin_cal_se(pcols)
+    real(r8) :: cldzopaq_cal_se(pcols)
+    real(r8) :: cldopaq_cal_2d(pcols,nht_cosp)
+    real(r8) :: cldthin_cal_2d(pcols,nht_cosp)
+    real(r8) :: cldzopaq_cal_2d(pcols,nht_cosp) 
+    real(r8) :: opacity_cal_2d(pcols,nht_cosp) 
     real(r8) :: cfad_dbze94_cs(pcols,nht_cosp*CLOUDSAT_DBZE_BINS)! CAM cfad_dbze94 (time,height,dbze,profile)
     real(r8) :: cfad_sr532_cal(pcols,nht_cosp*nsr_cosp)  ! CAM cfad_lidarsr532 (time,height,scat_ratio,profile)
     real(r8) :: tau_isccp(pcols,nscol_cosp)              ! CAM boxtauisccp (time,column,profile)
@@ -1959,22 +1981,22 @@ CONTAINS
     cld_cal_tmpliq(1:pcols,1:nht_cosp)               = R_UNDEF
     cld_cal_tmpice(1:pcols,1:nht_cosp)               = R_UNDEF
     cld_cal_tmpun(1:pcols,1:nht_cosp)                = R_UNDEF
-    ! cldopaq_cal(1:pcols)                             = R_UNDEF ! - JKS OPAQ diagnostics
-    ! cldthin_cal(1:pcols)                             = R_UNDEF
-    ! cldopaqz_cal(1:pcols)                            = R_UNDEF
-    ! cldopaq_cal_temp(1:pcols)                        = R_UNDEF
-    ! cldthin_cal_temp(1:pcols)                        = R_UNDEF
-    ! cldzopaq_cal_temp(1:pcols)                       = R_UNDEF
-    ! cldopaq_cal_z(1:pcols)                           = R_UNDEF
-    ! cldthin_cal_z(1:pcols)                           = R_UNDEF
-    ! cldthin_cal_emis(1:pcols)                        = R_UNDEF
-    ! cldopaq_cal_se(1:pcols)                          = R_UNDEF
-    ! cldthin_cal_se(1:pcols)                          = R_UNDEF
-    ! cldzopaq_cal_se(1:pcols)                         = R_UNDEF
-    ! cldopaq_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF
-    ! cldthin_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF
-    ! cldzopaq_cal_2d(1:pcols,1:nht_cosp)              = R_UNDEF 
-    ! opacity_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF ! - JKS OPAQ diagnostics end
+    cldopaq_cal(1:pcols)                             = R_UNDEF ! - JKS OPAQ diagnostics
+    cldthin_cal(1:pcols)                             = R_UNDEF
+    cldopaqz_cal(1:pcols)                            = R_UNDEF
+    cldopaq_cal_temp(1:pcols)                        = R_UNDEF
+    cldthin_cal_temp(1:pcols)                        = R_UNDEF
+    cldzopaq_cal_temp(1:pcols)                       = R_UNDEF
+    cldopaq_cal_z(1:pcols)                           = R_UNDEF
+    cldthin_cal_z(1:pcols)                           = R_UNDEF
+    cldthin_cal_emis(1:pcols)                        = R_UNDEF
+    cldopaq_cal_se(1:pcols)                          = R_UNDEF
+    cldthin_cal_se(1:pcols)                          = R_UNDEF
+    cldzopaq_cal_se(1:pcols)                         = R_UNDEF
+    cldopaq_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF
+    cldthin_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF
+    cldzopaq_cal_2d(1:pcols,1:nht_cosp)              = R_UNDEF 
+    opacity_cal_2d(1:pcols,1:nht_cosp)               = R_UNDEF ! - JKS OPAQ diagnostics end
     cfad_dbze94_cs(1:pcols,1:nht_cosp*CLOUDSAT_DBZE_BINS)    = R_UNDEF
     cfad_sr532_cal(1:pcols,1:nht_cosp*nsr_cosp)      = R_UNDEF
     tau_isccp(1:pcols,1:nscol_cosp)                  = R_UNDEF
@@ -2655,9 +2677,9 @@ CONTAINS
     end if         
     
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
-    print*,'cospswathsIN - cospsimulator_intr_run'
-    print*,'cospswathsIN(1)%N_inst_swaths:  ',cospswathsIN(1)%N_inst_swaths
-    print*,'cospswathsIN(6)%N_inst_swaths:  ',cospswathsIN(6)%N_inst_swaths
+    ! print*,'cospswathsIN - cospsimulator_intr_run'
+    ! print*,'cospswathsIN(1)%N_inst_swaths:  ',cospswathsIN(1)%N_inst_swaths
+    ! print*,'cospswathsIN(6)%N_inst_swaths:  ',cospswathsIN(6)%N_inst_swaths
    !  print*,'cospswathsIN(1)%inst_localtime_widths:  ',cospswathsIN(1)%inst_localtime_widths
    !  print*,'cospswathsIN(6)%inst_localtime_widths:  ',cospswathsIN(6)%inst_localtime_widths
     cospIN%cospswathsIN = cospswathsIN
@@ -2696,7 +2718,8 @@ CONTAINS
     ! Call COSP
     ! ######################################################################################
     call t_startf('cosp_simulator')
-
+    
+    ! Run loudly (with print statements) for the main process
     if (masterproc) then
       cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.true.)
     else
@@ -3139,22 +3162,22 @@ CONTAINS
        ! PARASOL. In COSP2, the Parasol simulator is independent of the calipso simulator.
        refl_parasol(1:ncol,1:nsza_cosp) = cospOUT%parasolGrid_refl                                ! CAM version of parasolrefl (time,sza,profile)
        ! CALIPSO Opaque cloud diagnostics
-       ! cldopaq_cal(1:pcols)                = cospOUT%calipso_cldtype(:,1)          
-       ! cldthin_cal(1:pcols)                = cospOUT%calipso_cldtype(:,2)
-       ! cldopaqz_cal(1:pcols)               = cospOUT%calipso_cldtype(:,3)
-       ! cldopaq_cal_temp(1:pcols)           = cospOUT%calipso_cldtypetemp(:,1)
-       ! cldthin_cal_temp(1:pcols)           = cospOUT%calipso_cldtypetemp(:,2)
-       ! cldzopaq_cal_temp(1:pcols)          = cospOUT%calipso_cldtypetemp(:,3)
-       ! cldopaq_cal_z(1:pcols)              = cospOUT%calipso_cldtypemeanz(:,1)
-       ! cldthin_cal_z(1:pcols)              = cospOUT%calipso_cldtypemeanz(:,2)
-       ! cldthin_cal_emis(1:pcols)           = cospOUT%calipso_cldthinemis
-       ! cldopaq_cal_se(1:pcols)             = cospOUT%calipso_cldtypemeanzse(:,1)
-       ! cldthin_cal_se(1:pcols)             = cospOUT%calipso_cldtypemeanzse(:,2)
-       ! cldzopaq_cal_se(1:pcols)            = cospOUT%calipso_cldtypemeanzse(:,3)
-       ! cldopaq_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,1)
-       ! cldthin_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,2)
-       ! cldzopaq_cal_2d(1:pcols,1:nht_cosp) = cospOUT%calipso_lidarcldtype(:,:,3)
-       ! opacity_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,4)
+       cldopaq_cal(1:pcols)                = cospOUT%calipso_cldtype(:,1)          
+       cldthin_cal(1:pcols)                = cospOUT%calipso_cldtype(:,2)
+       cldopaqz_cal(1:pcols)               = cospOUT%calipso_cldtype(:,3)
+       cldopaq_cal_temp(1:pcols)           = cospOUT%calipso_cldtypetemp(:,1)
+       cldthin_cal_temp(1:pcols)           = cospOUT%calipso_cldtypetemp(:,2)
+       cldzopaq_cal_temp(1:pcols)          = cospOUT%calipso_cldtypetemp(:,3)
+       cldopaq_cal_z(1:pcols)              = cospOUT%calipso_cldtypemeanz(:,1)
+       cldthin_cal_z(1:pcols)              = cospOUT%calipso_cldtypemeanz(:,2)
+       cldthin_cal_emis(1:pcols)           = cospOUT%calipso_cldthinemis
+       cldopaq_cal_se(1:pcols)             = cospOUT%calipso_cldtypemeanzse(:,1)
+       cldthin_cal_se(1:pcols)             = cospOUT%calipso_cldtypemeanzse(:,2)
+       cldzopaq_cal_se(1:pcols)            = cospOUT%calipso_cldtypemeanzse(:,3)
+       cldopaq_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,1)
+       cldthin_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,2)
+       cldzopaq_cal_2d(1:pcols,1:nht_cosp) = cospOUT%calipso_lidarcldtype(:,:,3)
+       opacity_cal_2d(1:pcols,1:nht_cosp)  = cospOUT%calipso_lidarcldtype(:,:,4)
     endif
     
     ! ISCCP
@@ -3448,39 +3471,39 @@ CONTAINS
        call outfld('CLD_CAL_TMPUN',cld_cal_tmpun    ,pcols,lchnk)  !!  !+cosp1.4 
 
        ! Opaque cloud diagnostics
-       ! call outfld('CLDOPQ_CAL',      cldopaq_cal,       pcols, lchnk)
-       ! call outfld('CLDTHN_CAL',      cldthin_cal,       pcols, lchnk)
-       ! call outfld('CLDZOPQ_CAL',     cldopaqz_cal,      pcols, lchnk)
-       ! call outfld('CLDOPQ_CAL_TMP',  cldopaq_cal_temp,  pcols, lchnk)
-       ! call outfld('CLDTHN_CAL_TMP',  cldthin_cal_temp,  pcols, lchnk)
-       ! call outfld('CLDZOPQ_CAL_TMP', cldzopaq_cal_temp, pcols, lchnk)
-       ! call outfld('CLDOPQ_CAL_Z',    cldopaq_cal_z,     pcols, lchnk)
-       ! call outfld('CLDTHN_CAL_Z',    cldthin_cal_z,     pcols, lchnk)
-       ! call outfld('CLDTHN_CAL_EMIS', cldthin_cal_emis,  pcols, lchnk)
-       ! call outfld('CLDOPQ_CAL_SE',   cldopaq_cal_se,    pcols, lchnk)
-       ! call outfld('CLDTHN_CAL_SE',   cldthin_cal_se,    pcols, lchnk)
-       ! call outfld('CLDZOPQ_CAL_SE',  cldzopaq_cal_se,   pcols, lchnk)
-       ! !
-       ! ! JKS not sure how this will work with masking.
-       ! where (cldopaq_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
-       !    cldopaq_cal_2d(:ncol,:nht_cosp) = 0.0_r8
-       ! end where
-       ! call outfld('CLDOPQ_CAL_2D',   cldopaq_cal_2d,    pcols, lchnk)
-       ! !
-       ! where (cldthin_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
-       !    cldthin_cal_2d(:ncol,:nht_cosp) = 0.0_r8
-       ! end where
-       ! call outfld('CLDTHN_CAL_2D',   cldthin_cal_2d,    pcols, lchnk)
-       ! !
-       ! where (cldzopaq_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
-       !    cldzopaq_cal_2d(:ncol,:nht_cosp) = 0.0_r8
-       ! end where
-       ! call outfld('CLDZOPQ_CAL_2D',  cldzopaq_cal_2d,   pcols, lchnk)
-       ! !
-       ! where (opacity_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
-       !    opacity_cal_2d(:ncol,:nht_cosp) = 0.0_r8
-       ! end where
-       ! call outfld('OPACITY_CAL_2D',  opacity_cal_2d,    pcols, lchnk)
+       call outfld('CLDOPQ_CAL',      cldopaq_cal,       pcols, lchnk)
+       call outfld('CLDTHN_CAL',      cldthin_cal,       pcols, lchnk)
+       call outfld('CLDZOPQ_CAL',     cldopaqz_cal,      pcols, lchnk)
+       call outfld('CLDOPQ_CAL_TMP',  cldopaq_cal_temp,  pcols, lchnk)
+       call outfld('CLDTHN_CAL_TMP',  cldthin_cal_temp,  pcols, lchnk)
+       call outfld('CLDZOPQ_CAL_TMP', cldzopaq_cal_temp, pcols, lchnk)
+       call outfld('CLDOPQ_CAL_Z',    cldopaq_cal_z,     pcols, lchnk)
+       call outfld('CLDTHN_CAL_Z',    cldthin_cal_z,     pcols, lchnk)
+       call outfld('CLDTHN_CAL_EMIS', cldthin_cal_emis,  pcols, lchnk)
+       call outfld('CLDOPQ_CAL_SE',   cldopaq_cal_se,    pcols, lchnk)
+       call outfld('CLDTHN_CAL_SE',   cldthin_cal_se,    pcols, lchnk)
+       call outfld('CLDZOPQ_CAL_SE',  cldzopaq_cal_se,   pcols, lchnk)
+       !
+       ! JKS not sure how this will work with masking. It won't.
+       where (cldopaq_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
+          cldopaq_cal_2d(:ncol,:nht_cosp) = 0.0_r8
+       end where
+       call outfld('CLDOPQ_CAL_2D',   cldopaq_cal_2d,    pcols, lchnk)
+       !
+       where (cldthin_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
+          cldthin_cal_2d(:ncol,:nht_cosp) = 0.0_r8
+       end where
+       call outfld('CLDTHN_CAL_2D',   cldthin_cal_2d,    pcols, lchnk)
+       !
+       where (cldzopaq_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
+          cldzopaq_cal_2d(:ncol,:nht_cosp) = 0.0_r8
+       end where
+       call outfld('CLDZOPQ_CAL_2D',  cldzopaq_cal_2d,   pcols, lchnk)
+       !
+       where (opacity_cal_2d(:ncol,:nht_cosp) .eq. R_UNDEF)
+          opacity_cal_2d(:ncol,:nht_cosp) = 0.0_r8
+       end where
+       call outfld('OPACITY_CAL_2D',  opacity_cal_2d,    pcols, lchnk)
 
     end if
     
@@ -4469,12 +4492,12 @@ CONTAINS
        allocate(x%calipso_tau_tot(Npoints,Ncolumns,Nlevels))       
        allocate(x%calipso_temp_tot(Npoints,Nlevels))               
        ! Calipso opaque cloud diagnostics
-       ! allocate(x%calipso_cldtype(Npoints,LIDAR_NTYPE))
-       ! allocate(x%calipso_cldtypetemp(Npoints,LIDAR_NTYPE))  
-       ! allocate(x%calipso_cldtypemeanz(Npoints,2)) 
-       ! allocate(x%calipso_cldtypemeanzse(Npoints,3)) 
-       ! allocate(x%calipso_cldthinemis(Npoints))
-       ! allocate(x%calipso_lidarcldtype(Npoints,Nlvgrid,LIDAR_NTYPE+1))
+       allocate(x%calipso_cldtype(Npoints,LIDAR_NTYPE))
+       allocate(x%calipso_cldtypetemp(Npoints,LIDAR_NTYPE))  
+       allocate(x%calipso_cldtypemeanz(Npoints,2)) 
+       allocate(x%calipso_cldtypemeanzse(Npoints,3)) 
+       allocate(x%calipso_cldthinemis(Npoints))
+       allocate(x%calipso_lidarcldtype(Npoints,Nlvgrid,LIDAR_NTYPE+1))
     endif 
       
     ! PARASOL
