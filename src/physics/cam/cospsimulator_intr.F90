@@ -11,7 +11,7 @@ module cospsimulator_intr
   !
   ! ######################################################################################
   use shr_kind_mod,         only: r8 => shr_kind_r8
-  use spmd_utils,           only: masterproc
+  use spmd_utils,           only: masterproc, mpi_real8, MPI_MAX ! JKS memory (last 2)
   use ppgrid,               only: pcols, pver, pverp, begchunk, endchunk
   use perf_mod,             only: t_startf, t_stopf
   use cam_abortutils,       only: endrun
@@ -615,7 +615,7 @@ CONTAINS
     if (cosp_lmodis_sim) then
        lmodis_sim = .true.
     end if
-    if (cosp_lrttov_sim) then
+    if ((rttov_Ninstruments .gt. 0) .and. cosp_lrttov_sim) then
        lrttov_sim = .true.
     end if
 
@@ -663,7 +663,6 @@ CONTAINS
        lmisr_sim = .true.
        lmodis_sim = .true.
        lfrac_out = .true.
-       lrttov_sim = .true.  ! - JKS
     end if
     
     !! if no simulators are turned on at all and docosp is, set cosp_amwg = .true.
@@ -1485,6 +1484,8 @@ CONTAINS
     use cam_history,          only: outfld,hist_fld_col_active 
     use cam_history_support,  only: max_fieldname_len
     use cmparray_mod,         only: CmpDayNite, ExpDayNite
+    use shr_mem_mod,          only: shr_mem_getusage ! JKS memory
+    use spmd_utils,           only: masterprocid, mpicom ! JKS memory
 #ifdef USE_COSP
     use mod_cosp_config,      only: R_UNDEF,parasol_nrefl, Nlvgrid, vgrid_zl, vgrid_zu
     use mod_cosp,             only: cosp_simulator
@@ -1683,6 +1684,11 @@ CONTAINS
     ! JKS RTTOV outputs?
     character(len=max_fieldname_len),dimension(rttov_Ninstruments,nf_rttov) :: &
          fname_rttov
+
+    real(r8)                            :: mem_hw_beg, mem_hw_end ! JKS memory
+    real(r8)                            :: mem_beg, mem_end ! JKS memory
+    real(r8) :: clat_p_tmp ! JKS memory
+    integer :: curp                       ! JKS memory
     
     logical :: run_radar(nf_radar,pcols)                      ! logical telling you if you should run radar simulator
     logical :: run_calipso(nf_calipso,pcols)                  ! logical telling you if you should run calipso simulator
@@ -2529,11 +2535,29 @@ CONTAINS
     ! ######################################################################################
     
     call t_startf('construct_cosp_outputs')
+
+    ! JKS check memory
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
     if (allocated(rttov_configs)) then
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT,rttov_configs)
     else
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT)
     end if
+
+    ! JKS check memory
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cosp_outputs: Increase in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cosp_outputs: Increase in memory highwater = ', mem_hw_end, ' (MB)'
+    end if
+
     call t_stopf('construct_cosp_outputs')
     
     ! ######################################################################################
@@ -2541,7 +2565,24 @@ CONTAINS
     ! ######################################################################################
     ! Model state
     call t_startf('construct_cospstateIN')
-    call construct_cospstateIN(ncol,pver,cospstateIN)      
+    ! JKS check memory
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
+    call construct_cospstateIN(ncol,pver,cospstateIN)
+
+    ! JKS check memory
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cospstateIN: Increase in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cospstateIN: Increase in memory highwater = ', mem_hw_end, ' (MB)'
+    end if
+
     cospstateIN%lat                            = lat_cosp(1:ncol)
     cospstateIN%lon                            = lon_cosp(1:ncol) 
     cospstateIN%at                             = state%t(1:ncol,1:pver)
@@ -2666,7 +2707,24 @@ CONTAINS
     
     ! Optical inputs
     call t_startf('construct_cospIN')
+    ! JKS check memory
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
     call construct_cospIN(ncol,nscol_cosp,pver,rttov_Ninstruments,cospIN,emis_grey=1.0_r8) ! JKS apply unitary blackbody surface emissivity to be consistent with CESM physics
+
+    ! JKS check memory
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cospIN: Increase in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'construct_cospIN: Increase in memory highwater = ', mem_hw_end, ' (MB)'
+    end if
+
     cospIN%emsfc_lw      = emsfc_lw
     if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)
     
@@ -2677,11 +2735,7 @@ CONTAINS
     end if         
     
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
-    ! print*,'cospswathsIN - cospsimulator_intr_run'
-    ! print*,'cospswathsIN(1)%N_inst_swaths:  ',cospswathsIN(1)%N_inst_swaths
-    ! print*,'cospswathsIN(6)%N_inst_swaths:  ',cospswathsIN(6)%N_inst_swaths
-   !  print*,'cospswathsIN(1)%inst_localtime_widths:  ',cospswathsIN(1)%inst_localtime_widths
-   !  print*,'cospswathsIN(6)%inst_localtime_widths:  ',cospswathsIN(6)%inst_localtime_widths
+
     cospIN%cospswathsIN = cospswathsIN
     call t_stopf('construct_cospIN') 
     
@@ -2714,12 +2768,14 @@ CONTAINS
        end if
     end if 
 
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS memory
+
     ! ######################################################################################
     ! Call COSP
     ! ######################################################################################
     call t_startf('cosp_simulator')
     
-    ! Run loudly (with print statements) for the main process
+    ! Run loudly (with print statements) for the main processor
     if (masterproc) then
       cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.true.)
     else
@@ -2731,6 +2787,19 @@ CONTAINS
            write(iulog,*)'after COSP_SIMULATOR'
        end if
     end if 
+
+    ! JKS memory
+    if (docosp) then 
+       call shr_mem_getusage(mem_hw_end, mem_end)
+       clat_p_tmp = mem_end - mem_beg
+       call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+          masterprocid, mpicom, curp)
+       if (masterproc) write(iulog, *) 'COSP_SIMULATOR: Increase in memory usage = ', mem_end, ' (MB)'
+       clat_p_tmp = mem_hw_end - mem_hw_beg
+       call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+          masterprocid, mpicom, curp)
+       if (masterproc) write(iulog, *) 'COSP_SIMULATOR: Increase in memory highwater = ', mem_hw_end, ' (MB)'
+    end if
 
     ! Check status flags
     nerror = 0
@@ -2870,225 +2939,7 @@ CONTAINS
           enddo
        end if
     end if
-    call t_stopf("sunlit_passive")
-
-   !  ! #########################################################################################
-   !  ! Set un-observed scenes to fill value. Only done when user requests swathed COSP output.
-   !  ! #########################################################################################
-
-   !  ! Hardcode orbit parameters to start
-   !  cosp_Nlocaltime = 2 ! Init this variable to zero.
-
-   !  ! Handle swathing here.
-   !  ! These don't need to have this high of dimensionality if fortran is naturally smart about broadcasting in the where statement, but not sure.
-  
-   !  !------------------ ISCCP ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 1-D
-   !    where ( swath_mask_out )
-   !      cospOUT%isccp_totalcldarea(1:Npoints)  = R_UNDEF
-   !      cospOUT%isccp_meanptop(1:Npoints)      = R_UNDEF
-   !      cospOUT%isccp_meantaucld(1:Npoints)    = R_UNDEF
-   !      cospOUT%isccp_meanalbedocld(1:Npoints) = R_UNDEF
-   !      cospOUT%isccp_meantb(1:Npoints)        = R_UNDEF
-   !      cospOUT%isccp_meantbclr(1:Npoints)     = R_UNDEF
-   !    end where
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,Ncolumns,swath_mask_out,cospOUT%isccp_boxtau)
-   !    call mask_outputs_2d(Npoints,Ncolumns,swath_mask_out,cospOUT%isccp_boxptop)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,numISCCPTauBins,numISCCPPresBins,swath_mask_out,cospOUT%isccp_fq)
-   !    print*,'swath_mask_out:   ',swath_mask_out
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  print*,'cospOUT%isccp_totalcldarea:   ',cospOUT%isccp_totalcldarea
-  
-   !  !------------------ MISR ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 1-D
-   !    where ( swath_mask_out )
-   !      cospOUT%misr_meanztop(1:Npoints)     = R_UNDEF
-   !      cospOUT%misr_cldarea(1:Npoints)      = R_UNDEF
-   !    end where
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,numMISRHgtBins,swath_mask_out,cospOUT%misr_dist_model_layertops)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,numMISRTauBins,numISCCPPresBins,swath_mask_out,cospOUT%misr_fq)                        
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  !------------------ MODIS ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 1-D
-   !    where ( swath_mask_out )
-   !      cospOUT%modis_Cloud_Fraction_Total_Mean(1:Npoints)          = R_UNDEF
-   !      cospOUT%modis_Cloud_Fraction_Water_Mean(1:Npoints)          = R_UNDEF
-   !      cospOUT%modis_Cloud_Fraction_Ice_Mean(1:Npoints)            = R_UNDEF
-   !      cospOUT%modis_Cloud_Fraction_High_Mean(1:Npoints)           = R_UNDEF
-   !      cospOUT%modis_Cloud_Fraction_Mid_Mean(1:Npoints)            = R_UNDEF
-   !      cospOUT%modis_Cloud_Fraction_Low_Mean(1:Npoints)            = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Total_Mean(1:Npoints)       = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Water_Mean(1:Npoints)       = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Ice_Mean(1:Npoints)         = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Total_LogMean(1:Npoints)    = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Water_LogMean(1:Npoints)    = R_UNDEF
-   !      cospOUT%modis_Optical_Thickness_Ice_LogMean(1:Npoints)      = R_UNDEF
-   !      cospOUT%modis_Cloud_Particle_Size_Water_Mean(1:Npoints)     = R_UNDEF
-   !      cospOUT%modis_Cloud_Particle_Size_Ice_Mean(1:Npoints)       = R_UNDEF
-   !      cospOUT%modis_Cloud_Top_Pressure_Total_Mean(1:Npoints)      = R_UNDEF
-   !      cospOUT%modis_Liquid_Water_Path_Mean(1:Npoints)             = R_UNDEF
-   !      cospOUT%modis_Ice_Water_Path_Mean(1:Npoints)                = R_UNDEF
-   !    end where
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,numModisTauBins,numMODISPresBins,swath_mask_out,cospOUT%modis_Optical_Thickness_vs_Cloud_Top_Pressure)
-   !    call mask_outputs_3d(Npoints,numMODISReffIceBins,numMODISPresBins,swath_mask_out,cospOUT%modis_Optical_Thickness_vs_ReffICE)
-   !    call mask_outputs_3d(Npoints,numMODISReffLiqBins,numMODISPresBins,swath_mask_out,cospOUT%modis_Optical_Thickness_vs_ReffLIQ)
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  !------------------ CALIPSO ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 1-D
-   !    where ( swath_mask_out )
-   !      cospOUT%calipso_cldthinemis(1:Npoints)  = R_UNDEF
-   !    end where
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,Nlevels,swath_mask_out,cospOUT%calipso_beta_mol)
-   !    call mask_outputs_2d(Npoints,Nlevels,swath_mask_out,cospOUT%calipso_temp_tot)
-   !    call mask_outputs_2d(Npoints,Nlvgrid,swath_mask_out,cospOUT%calipso_lidarcld)
-   !    call mask_outputs_2d(Npoints,LIDAR_NCAT,swath_mask_out,cospOUT%calipso_cldlayer)
-   !    call mask_outputs_2d(Npoints,LIDAR_NTYPE,swath_mask_out,cospOUT%calipso_cldtype)
-   !    call mask_outputs_2d(Npoints,LIDAR_NTYPE,swath_mask_out,cospOUT%calipso_cldtypetemp)
-   !    call mask_outputs_2d(Npoints,2,swath_mask_out,cospOUT%calipso_cldtypemeanz)
-   !    call mask_outputs_2d(Npoints,3,swath_mask_out,cospOUT%calipso_cldtypemeanzse)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,Ncolumns,Nlevels,swath_mask_out,cospOUT%calipso_betaperp_tot)
-   !    call mask_outputs_3d(Npoints,Ncolumns,Nlevels,swath_mask_out,cospOUT%calipso_beta_tot)
-   !    call mask_outputs_3d(Npoints,Ncolumns,Nlevels,swath_mask_out,cospOUT%calipso_tau_tot)
-   !    call mask_outputs_3d(Npoints,Nlvgrid,6,swath_mask_out,cospOUT%calipso_lidarcldphase)
-   !    call mask_outputs_3d(Npoints,Nlvgrid,LIDAR_NTYPE+1,swath_mask_out,cospOUT%calipso_lidarcldtype)
-   !    call mask_outputs_3d(Npoints,LIDAR_NCAT,6,swath_mask_out,cospOUT%calipso_cldlayerphase)
-   !    call mask_outputs_3d(Npoints,LIDAR_NTEMP,5,swath_mask_out,cospOUT%calipso_lidarcldtmp)
-   !    call mask_outputs_3d(Npoints,SR_BINS,Nlvgrid,swath_mask_out,cospOUT%calipso_cfad_sr)
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  !------------------ PARASOL ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,PARASOL_NREFL,swath_mask_out,cospOUT%parasolGrid_refl)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,Ncolumns,PARASOL_NREFL,swath_mask_out,cospOUT%parasolPix_refl)
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  !------------------ CLOUDSAT ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! 1-D
-   !    where ( swath_mask_out )
-   !      cospOUT%cloudsat_tcc(1:Npoints)  = R_UNDEF
-   !      cospOUT%cloudsat_tcc2(1:Npoints)  = R_UNDEF
-   !      cospOUT%radar_lidar_tcc(1:Npoints)  = R_UNDEF
-   !      cospOUT%cloudsat_pia(1:Npoints)  = R_UNDEF
-   !    end where      
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,Nlevels,swath_mask_out,cospOUT%lidar_only_freq_cloud)
-   !    call mask_outputs_2d(Npoints,cloudsat_DBZE_BINS,swath_mask_out,cospOUT%cloudsat_precip_cover)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,Ncolumns,Nlevels,swath_mask_out,cospOUT%cloudsat_Ze_tot)
-   !    call mask_outputs_3d(Npoints,cloudsat_DBZE_BINS,Nlevels,swath_mask_out,cospOUT%cloudsat_cfad_ze)
-  
-   !    !---------- Joint CloudSat+MODIS simulators outputs ----------!
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,WR_NREGIME,swath_mask_out,cospOUT%wr_occfreq_ntotal)
-   !    ! 4-D
-   !    call mask_outputs_4d(Npoints,CFODD_NDBZE,CFODD_NICOD,CFODD_NCLASS,swath_mask_out,cospOUT%cfodd_ntotal)
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if
-  
-   !  !------------------ ATLID Lidar ------------------!
-   !  if (cosp_Nlocaltime .gt. 0) then
-  
-   !    ! Hardcode orbit parameters to start
-   !    allocate(cosp_localtime_width(cosp_Nlocaltime),cosp_localtime(cosp_Nlocaltime),swath_mask_out(Npoints))  
-   !    cosp_localtime  = (/1,13/) ! 1am and 1pm
-   !    cosp_localtime_width = (/1000,1000/) ! 1000 km  
-  
-   !    call compute_orbitmasks(Npoints,cosp_Nlocaltime,cosp_localtime,cosp_localtime_width,  &
-   !                            cospstateIN%lat,cospstateIN%lon,cospstateIN%rttov_time(:,1),  &
-   !                            cospstateIN%rttov_time(:,2),swath_mask_out)
-   !    ! Mask out areas that are not observed. Need different statements for outputs of different dimensionality because apparently fortran is dumb at broadcasting :(
-   !    ! The "atlid_srbval" variable doesn't have a spatial dimension so it is excluded here.   
-   !    ! 2-D
-   !    call mask_outputs_2d(Npoints,Nlvgrid,swath_mask_out,cospOUT%atlid_lidarcld)
-   !    call mask_outputs_2d(Npoints,LIDAR_NCAT,swath_mask_out,cospOUT%atlid_cldlayer)
-   !    call mask_outputs_2d(Npoints,Nlevels,swath_mask_out,cospOUT%atlid_beta_mol)
-   !    ! 3D
-   !    call mask_outputs_3d(Npoints,Ncolumns,Nlevels,swath_mask_out,cospOUT%atlid_beta_tot)
-   !    call mask_outputs_3d(Npoints,SR_BINS,Nlvgrid,swath_mask_out,cospOUT%atlid_cfad_sr)
-   !    deallocate(cosp_localtime_width,cosp_localtime,swath_mask_out)  
-   !  end if      
+    call t_stopf("sunlit_passive")  
 
     ! ######################################################################################
     ! Copy COSP outputs to CAM fields.
@@ -3342,21 +3193,65 @@ CONTAINS
     ! Clean up
     ! ######################################################################################
 
-!    call t_startf("rttov_cleanup")
-   !  call rttov_cleanup(cospIN) ! Just break things to get diagnostics. Not really code. - JKS
-!    call t_stopf("rttov_cleanup")
-    ! do i=1,6
-    !   if (associated(cospswathsIN(i) % inst_localtimes)) nullify(cospswathsIN(i) % inst_localtimes)
-    !   if (associated(cospswathsIN(i) % inst_localtime_widths)) nullify(cospswathsIN(i) % inst_localtime_widths)
-    ! end do    
     call t_startf("destroy_cospIN")
+    ! JKS - memory check
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
     call destroy_cospIN(cospIN) ! JKS add swath destroy logical? Need to update function
+
+    ! JKS - memory check
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cospIN: Decrease in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cospIN: Decrease in memory highwater = ', mem_hw_end, ' (MB)'      
+    end if
+
     call t_stopf("destroy_cospIN") 
     call t_startf("destroy_cospstateIN")
+    ! JKS - memory check
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
     call destroy_cospstateIN(cospstateIN)
+
+    ! JKS - memory check
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cospstateIN: Decrease in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cospstateIN: Decrease in memory highwater = ', mem_hw_end, ' (MB)'         
+    end if
+
     call t_stopf("destroy_cospstateIN")
     call t_startf("destroy_cospOUT")
+    ! JKS - memory check
+    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
+
     call destroy_cosp_outputs(cospOUT) 
+
+    ! JKS - memory check
+    if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cosp_outputs: Decrease in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'destroy_cosp_outputs: Decrease in memory highwater = ', mem_hw_end, ' (MB)'       
+    end if
+
     call t_stopf("destroy_cospOUT")
 
     ! ######################################################################################
@@ -4191,143 +4086,6 @@ CONTAINS
 
   end subroutine subsample_and_optics
 
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!   ! SUBROUTINE compute_orbitmasks
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-!   subroutine compute_orbitmasks(Npoints,Nlocaltimes,localtimes,localtime_widths,      &
-!                                 lat,lon,hour,minute,swath_mask_out)
-
-!     ! Inputs
-!     integer,intent(in) :: &
-!       Npoints,         &
-!       Nlocaltimes
-
-!     real(wp),dimension(Nlocaltimes),intent(in) :: &
-!       localtimes,        &
-!       localtime_widths
-
-!     real(wp),dimension(Npoints),intent(in) :: &
-!       lat,     &
-!       lon,     &
-!       hour,    &
-!       minute
-
-!     ! Output
-!     logical,dimension(Npoints),intent(out) :: &
-!       swath_mask_out    ! Mask of reals over all gridcells
-
-!     ! Local variables
-!     integer :: i ! iterators
-
-!     real(wp),parameter                     :: &
-!       pi = 4.D0*DATAN(1.D0),  &  ! yum
-!       radius = 6371.0            ! Earth's radius in km (mean volumetric)
-
-!     real(wp),dimension(Npoints,Nlocaltimes) :: &
-!       sat_lon,        & ! Central longitude of the instrument.
-!       dlon,           & ! distance to satellite longitude in degrees
-!       dx                ! distance to satellite longitude in km?       
-
-!     logical,dimension(Npoints,Nlocaltimes) :: &
-!       swath_mask_all    ! Mask of logicals over all local times, gridcells  
-
-!     ! Iterate over local times
-!     swath_mask_all(:,:) = 0
-!     do i=1,Nlocaltimes
-!       ! Calculate the central longitude for each gridcell and orbit
-!       sat_lon(:,i) = 15.0 * (localtimes(i) - (hour + minute / 60))
-!       ! Calculate distance (in degrees) from each grid cell to the satellite central long
-!       dlon(:,i) = mod((lon - sat_lon(:,i) + 180.0), 360.0) - 180.0             
-!       ! calculate distance to satellite in km. Remember to convert to radians for cos/sine calls
-!       dx(:,i)   = dlon(:,i) * (pi/180.0) * COS(lat * pi / 180) * radius
-!       ! Determine if a gridcell falls in the swath width
-!       where (abs(dx(:,i))<(localtime_widths(i)*0.5))
-!         swath_mask_all(:,i) = .true.
-!       end where        
-!     end do
-
-!     ! Mask is true where values should be masked to R_UNDEF
-!     swath_mask_out = ALL( swath_mask_all(:,:) .eq. .false.,2) ! Compute mask by collapsing the localtimes dimension ! ANY(swath_mask_all,dim=1)
-
-!   end subroutine compute_orbitmasks
-
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!   ! SUBROUTINE mask_outputs_2d - Mask out a 2d array
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-!   subroutine mask_outputs_2d(dim1,dim2,mask,data_array)
-!     ! Inputs
-!     integer,intent(in) :: &
-!       dim1,   &
-!       dim2
-!     logical,dimension(dim1),intent(in) :: &
-!       mask
-!     real(wp),dimension(dim1,dim2),intent(inout) :: &
-!       data_array
-
-!     ! Local variables
-!     integer :: i   ! iterator
-
-!     do i=1,dim2
-!       where ( mask ) data_array(1:dim1,i) = R_UNDEF
-!     end do  
-
-!   end subroutine mask_outputs_2d
-
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!   ! SUBROUTINE mask_outputs_3d - Mask out a 3d array
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-!   subroutine mask_outputs_3d(dim1,dim2,dim3,mask,data_array)
-
-!     ! Inputs
-!     integer,intent(in) :: &
-!       dim1,   &
-!       dim2,   &
-!       dim3
-!     logical,dimension(dim1),intent(in) :: &
-!       mask      
-!     real(wp),dimension(dim1,dim2,dim3),intent(inout) :: &
-!       data_array
-
-!     ! Local variables
-!     integer :: i,j   ! iterator
-
-!     do i=1,dim2
-!       do j=1,dim3
-!         where ( mask ) data_array(1:dim1,i,j) = R_UNDEF
-!       end do
-!     end do  
-
-!   end subroutine mask_outputs_3d
-
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!   ! SUBROUTINE mask_outputs_4d - Mask out a 3d array
-!   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-!   subroutine mask_outputs_4d(dim1,dim2,dim3,dim4,mask,data_array)
-
-!     ! Inputs
-!     integer,intent(in) :: &
-!       dim1,   &
-!       dim2,   &
-!       dim3,   &
-!       dim4
-!     logical,dimension(dim1),intent(in) :: &
-!       mask      
-!     real(wp),dimension(dim1,dim2,dim3,dim4),intent(inout) :: &
-!       data_array
-
-!     ! Local variables
-!     integer :: i,j,k   ! iterator
-
-!     do i=1,dim2
-!       do j=1,dim3
-!         do k=1,dim4
-!           where ( mask ) data_array(1:dim1,i,j,k) = R_UNDEF
-!         end do
-!       end do
-!     end do  
-
-!   end subroutine mask_outputs_4d  
-
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   ! SUBROUTINE construct_cospIN
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4376,7 +4134,6 @@ CONTAINS
              y%tautot_S_ice(       npoints, ncolumns         ),&
              y%tautot_S_liq(       npoints, ncolumns)         ,&
              y%fracPrecipIce(npoints,   ncolumns))
-    if (ninst_rttov .gt. 0) allocate(y%cfg_rttov(ninst_rttov)) ! Why do I need to allocate if this variable is a pointer?
   end subroutine construct_cospIN
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4517,7 +4274,7 @@ CONTAINS
     endif
     
     ! RTTOV - Allocate output for multiple instruments        
-    if ((N_rttov_instruments .gt. 0) .and. (lrttov_sim)) then
+    if (lrttov_sim) then
         x % N_rttov_instruments = N_rttov_instruments
         allocate(x % rttov_outputs(N_rttov_instruments)) ! Need to allocate a pointer?
         do i=1,N_rttov_instruments
@@ -4598,6 +4355,7 @@ CONTAINS
     if (allocated(y%beta_mol_atlid))      deallocate(y%beta_mol_atlid)
     if (allocated(y%tau_mol_grLidar532))  deallocate(y%tau_mol_grLidar532)
     if (allocated(y%tau_mol_atlid))       deallocate(y%tau_mol_atlid)
+    if (associated(y%cfg_rttov))          nullify(y%cfg_rttov)
 
   end subroutine destroy_cospIN
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

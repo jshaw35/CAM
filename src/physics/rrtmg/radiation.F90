@@ -365,7 +365,8 @@ subroutine radiation_init(pbuf2d)
    use cloud_rad_props, only: cloud_rad_props_init
    use rrtmg_state,     only: rrtmg_state_init
    use time_manager,    only: is_first_step
-
+   use shr_mem_mod,     only: shr_mem_getusage ! JKS - memory
+   use spmd_utils,      only: masterprocid, mpicom, mpi_real8, MPI_MAX ! JKS memory
 
    ! arguments
    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
@@ -383,6 +384,11 @@ subroutine radiation_init(pbuf2d)
    integer :: err
 
    integer :: dtime
+
+   real(r8)                            :: mem_hw_beg, mem_hw_end ! JKS memory
+   real(r8)                            :: mem_beg, mem_end ! JKS memory
+   real(r8) :: clat_p_tmp ! JKS memory
+   integer :: curp                       ! JKS memory
    !-----------------------------------------------------------------------
 
    call rad_solar_var_init()
@@ -424,7 +430,36 @@ subroutine radiation_init(pbuf2d)
       irad_always = irad_always + nstep
    end if
 
+   if (masterproc) then
+      if (docosp) then 
+          write(iulog,*)'at cospsimulator_intr_init'
+      end if
+   end if 
+
+   ! JKS - memory
+   if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot 
+
    if (docosp) call cospsimulator_intr_init
+
+   if (masterproc) then
+      if (docosp) then 
+          write(iulog,*)'after cospsimulator_intr_init'
+      end if
+   end if          
+
+   ! JKS - memory
+   if (docosp) then 
+      call shr_mem_getusage(mem_hw_end, mem_end)
+   !  write(iulog, *) 'mem_end: ', mem_end, ' (MB)'
+      clat_p_tmp = mem_end - mem_beg
+      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'cospsimulator_intr_init: Increase in memory usage = ', mem_end, ' (MB)'
+      clat_p_tmp = mem_hw_end - mem_hw_beg
+      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
+         masterprocid, mpicom, curp)
+      if (masterproc) write(iulog, *) 'cospsimulator_intr_init: Increase in memory highwater = ', mem_hw_end, ' (MB)'
+   end if
 
    allocate(cosp_cnt(begchunk:endchunk))
    if (is_first_restart_step()) then
