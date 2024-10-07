@@ -1346,13 +1346,6 @@ CONTAINS
        end do     
     end if
     
-    if (masterproc) then
-       if (docosp) then 
-          write(iulog,*)'Finished RTTOV section in cospsimulator_intr_init'
-          write(iulog,*)'lrttov_sim:                   ', lrttov_sim
-       end if
-    end if    
-    
     !! ADDFLD, ADD_DEFAULT, OUTFLD CALLS FOR COSP OUTPUTS IF RUNNING COSP OFF-LINE
     !! Note: A suggestion was to add all of the CAM variables needed to add to make it possible to run COSP off-line
     !! These fields are available and can be called from the namelist though.  Here, when the cosp_runall mode is invoked
@@ -1886,7 +1879,6 @@ CONTAINS
                                  'rttov_radpc_clr_inst'//trim(i_str) /)
         end do
     end do 
-    
     
     ! Allocate the DDT for the RTTOV outputs (bleh?)
     if (lrttov_sim) then
@@ -2582,17 +2574,6 @@ CONTAINS
     ! Set time 
     call get_curr_date(yr, mon, day, ncsec)
     
-!    if (masterproc) then
-!       if (docosp) then 
-!           write(iulog,*)'ncol:      ',ncol
-!           write(iulog,*)'mon:      ',mon
-!           write(iulog,*)'ncsec:    ',ncsec
-!           write(iulog,*)'coszrs:    ',coszrs
-!           write(iulog,*)'shape(coszrs):    ',shape(coszrs)
-!           write(iulog,*)'shape(cospstateIN%sza):    ',shape(cospstateIN%sza)
-!       end if
-!    end if
-    
     cospstateIN%rttov_date(:,1)  = yr
     cospstateIN%rttov_date(:,2)  = mon
     cospstateIN%rttov_date(:,3)  = day
@@ -2606,61 +2587,6 @@ CONTAINS
 
     cospstateIN%cloudIce(1:ncol,1:pver) = allcld_ice ! gridcell ice water mixing ratio
     cospstateIN%cloudLiq(1:ncol,1:pver) = allcld_liq ! gridcell liquid water mixing ratio
-   !  if (masterproc) then
-   !     if (docosp) then 
-   !         write(iulog,*)'cospstateIN%rttov_date(:,1):    ',cospstateIN%rttov_date(:,1)     
-   !         write(iulog,*)'cospstateIN%rttov_date(:,2):    ',cospstateIN%rttov_date(:,2)     
-   !         write(iulog,*)'cospstateIN%rttov_date(:,3):    ',cospstateIN%rttov_date(:,3)
-   !         write(iulog,*)'cospstateIN%rttov_time(:,1):    ',cospstateIN%rttov_time(:,1)
-   !         write(iulog,*)'cospstateIN%rttov_time(:,2):    ',cospstateIN%rttov_time(:,2)
-   !         write(iulog,*)'cospstateIN%rttov_time(:,3):    ',cospstateIN%rttov_time(:,3)
-   !         write(iulog,*)'coszrs:             ',coszrs
-   !         write(iulog,*)'cospstateIN%sza:    ',cospstateIN%sza
-   !         write(iulog,*)'cospstateIN%lat:    ',cospstateIN%lat
-   !         write(iulog,*)'cospstateIN%lon:    ',cospstateIN%lon
-   !         write(iulog,*)'cospstateIN%phalf(1,:):    ',cospstateIN%phalf(1,:)
-   !     end if
-   !  end if 
-
-    ! JKS
-    ! Combine large-scale and convective cloud mixing ratios for RTTOV. Could pass in separately for cloud categories
-    ! If convective liquid is not included in RRTMG-LW's radiative transfer should I remove it? I should be able to test with print statements.
-    ! Old version with incorrect mixing ratios.
-   !  cospstateIN%cloudIce = mr_lsice(1:ncol,1:pver) + mr_ccice(1:ncol,1:pver)
-   !  cospstateIN%cloudLiq = mr_lsliq(1:ncol,1:pver) + mr_ccliq(1:ncol,1:pver)
-    ! Updated version that calculates the cloud water mixing ratios consistently with cloud_diagnostics.F90 which is used in the radiation scheme
-
-    ! Alternatively use the in-cloud mixing ratios to be more consistent with the radiation scheme. But then need to modify rttov_config % opts % rt_ir % grid_box_avg_cloud
-
-   !  if (masterproc) write(iulog,*) 'cospstateIN%at(:,;):  ',cospstateIN%at(:,:)
-   !  if (masterproc) write(iulog,*) 'cospstateIN%skt(:):  ',cospstateIN%skt(:)
-   !  if (masterproc) write(iulog,*) 'cospstateIN%psfc(:):  ',cospstateIN%psfc(:)
-   !  if (masterproc) write(iulog,*) 'cam_in%tref(1:ncol): ',cam_in%tref(1:ncol)
-   !  if (masterproc) write(iulog,*) 'cospstateIN%co2(1,:): ',cospstateIN%co2(1,:)
-   !  if (masterproc) write(iulog,*) 'cospstateIN%pfull(1,:): ',cospstateIN%pfull(1,:)
-   !  if (masterproc) write(iulog,*) 'cospstateIN%phalf(1,:): ',cospstateIN%phalf(1,:)
-    ! if (masterproc) write(iulog,*) 'cospstateIN%o3(1,:): ',cospstateIN%o3(1,:)
-    ! if (masterproc) write(iulog,*) 'cospgridIN%phalf(:,cospIN%Nlevels+1): ',cospgridIN%phalf(:,cospIN%Nlevels+1)
-
-    !if (masterproc) then
-      !if (docosp) then
-         ! print*,'Npoints: ',Npoints
-         ! print*,'reff_cosp(1:ncol,1:pver,I_LSCLIQ): ',reff_cosp(1:ncol,1:pver,I_LSCLIQ)
-         ! print*,'reff_cosp(1:ncol,1:pver,I_CVCLIQ): ',reff_cosp(1:ncol,1:pver,I_CVCLIQ)
-         !  print*,'reff_cosp(1:ncol,1:pver,I_LSCICE): ',reff_cosp(1:ncol,1:pver,I_LSCICE)
-         !  print*,'reff_cosp(1:ncol,1:pver,I_CVCICE): ',reff_cosp(1:ncol,1:pver,I_CVCICE)
-         !  print*,'dei(1:ncol,1:pver): ',dei(1:ncol,1:pver)
-         !  print*,'cospstateIN%cloudLiq: ',cospstateIN%cloudLiq
-         !  print*,'mr_lsliq(1:ncol,1:pver): ',mr_lsliq(1:ncol,1:pver)
-         !  print*,'mr_ccliq(1:ncol,1:pver): ',mr_ccliq(1:ncol,1:pver)
-         !  print*,'icimr(1:ncol,1:pver): ',icimr(1:ncol,1:pver)
-         !  print*,'icwmr(1:ncol,1:pver): ',icwmr(1:ncol,1:pver)
-         !  print*,'allcld_liq(1:ncol,1:pver): ',allcld_liq(1:ncol,1:pver)
-         !  print*,'allcld_ice(1:ncol,1:pver): ',allcld_ice(1:ncol,1:pver)
-         !  print*,'cospstateIN%o3(1,:): ',cospstateIN%o3(1,:)
-         !  print*,'cospstateIN%tca(1,:): ',cospstateIN%tca(1,:)
-      !end if
-    !end if     
 
     ! Combine large-scale and convective cloud effective radii into effective diameters for RTTOV
     ! Reff(Npoints,Nlevels,N_HYDRO)
@@ -2674,15 +2600,6 @@ CONTAINS
     else where (mr_ccliq(:,Nlevels:1:-1) .gt. 0._r8)
         cospstateIN%DeffLiq(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_CVCLIQ)
     end where
-
-   !  cospstateIN%DeffIce(:,:) = 0._r8 ! Initialize for zero everywhere.
-   !  where ((mr_lsice(1:ncol,1:pver) .gt. 0._r8) .and. (mr_ccice(1:ncol,1:pver) .gt. 0._r8))
-   !      cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * (mr_lsice(1:ncol,1:pver) + mr_ccice(1:ncol,1:pver)) / (mr_lsice(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_LSCICE) + mr_ccice(1:ncol,1:pver) / reff_cosp(1:ncol,1:pver,I_CVCICE))          
-   !  else where (mr_lsice(1:ncol,1:pver) .gt. 0._r8)
-   !      cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_LSCICE)
-   !  else where (mr_ccice(1:ncol,1:pver) .gt. 0._r8)
-   !      cospstateIN%DeffIce(:,:) = 2._r8 * 1.0e6 * reff_cosp(1:ncol,1:pver,I_CVCICE)
-   !  end where
 
     ! Use the actual effective ice diameter value (different from the radius fields and used in RRTMG)
     cospstateIN%DeffIce(:,:) = dei(1:ncol,1:pver)
@@ -2702,21 +2619,6 @@ CONTAINS
 !    cospstateIN%q2m                         = cam_in%qref(1:ncol)
     
     call t_stopf('construct_cospstateIN')
-
-!    if (masterproc) then
-!       if (docosp) then 
-!          write(iulog,*)'cospstateIN%t2m:    ',cospstateIN%t2m
-!          write(iulog,*)'cospstateIN%q2m:    ',cospstateIN%q2m
-!          write(iulog,*)'cam_in%tref:    ',cam_in%tref
-!          write(iulog,*)'cam_in%qref:    ',cam_in%qref
-!          write(iulog,*)'cam_in%u10:     ',cam_in%u10          
-!       end if
-!    end if 
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'at construct_cospIN'
-       end if
-    end if 
     
     ! Optical inputs
     call t_startf('construct_cospIN')
@@ -2724,24 +2626,11 @@ CONTAINS
     call construct_cospIN(ncol,nscol_cosp,pver,rttov_Ninstruments,cospIN,emis_grey=1.0_r8) ! JKS apply unitary blackbody surface emissivity to be consistent with CESM physics
 
     cospIN%emsfc_lw      = emsfc_lw
-    if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)
-    
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'after construct_cospIN'
-       end if
-    end if     
-    
+    if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)    
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
 
     cospIN%cospswathsIN = cospswathsIN
     call t_stopf('construct_cospIN') 
-    
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'at subsample_and_optics'
-       end if
-    end if
 
     ! *NOTE* Fields passed into subsample_and_optics are ordered from TOA-2-SFC.
     if (lradar_sim .or. (llidar_sim .or. (lisccp_sim .or. (lmisr_sim .or. lmodis_sim)))) then ! RTTOV does not use subsample_and_optics
