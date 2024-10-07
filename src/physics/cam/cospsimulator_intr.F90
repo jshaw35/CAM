@@ -11,7 +11,7 @@ module cospsimulator_intr
   !
   ! ######################################################################################
   use shr_kind_mod,         only: r8 => shr_kind_r8
-  use spmd_utils,           only: masterproc, mpi_real8, MPI_MAX ! JKS memory (last 2)
+  use spmd_utils,           only: masterproc
   use ppgrid,               only: pcols, pver, pverp, begchunk, endchunk
   use perf_mod,             only: t_startf, t_stopf
   use cam_abortutils,       only: endrun
@@ -1476,8 +1476,6 @@ CONTAINS
     use cam_history,          only: outfld,hist_fld_col_active 
     use cam_history_support,  only: max_fieldname_len
     use cmparray_mod,         only: CmpDayNite, ExpDayNite
-    use shr_mem_mod,          only: shr_mem_getusage ! JKS memory
-    use spmd_utils,           only: masterprocid, mpicom ! JKS memory
 #ifdef USE_COSP
     use mod_cosp_config,      only: R_UNDEF,parasol_nrefl, Nlvgrid, vgrid_zl, vgrid_zu
     use mod_cosp,             only: cosp_simulator
@@ -1680,11 +1678,6 @@ CONTAINS
     ! JKS RTTOV outputs?
     character(len=max_fieldname_len),dimension(rttov_Ninstruments,nf_rttov) :: &
          fname_rttov
-
-    real(r8)                            :: mem_hw_beg, mem_hw_end ! JKS memory
-    real(r8)                            :: mem_beg, mem_end ! JKS memory
-    real(r8) :: clat_p_tmp ! JKS memory
-    integer :: curp                       ! JKS memory
     
     logical :: run_radar(nf_radar,pcols)                      ! logical telling you if you should run radar simulator
     logical :: run_calipso(nf_calipso,pcols)                  ! logical telling you if you should run calipso simulator
@@ -2545,26 +2538,10 @@ CONTAINS
     
     call t_startf('construct_cosp_outputs')
 
-    ! JKS check memory
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
-
     if (allocated(rttov_configs)) then
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT,rttov_configs)
     else
         call construct_cosp_outputs(ncol,nscol_cosp,pver,Nlvgrid,rttov_Ninstruments,cospOUT)
-    end if
-
-    ! JKS check memory
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cosp_outputs: Increase in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cosp_outputs: Increase in memory highwater = ', mem_hw_end, ' (MB)'
     end if
 
     call t_stopf('construct_cosp_outputs')
@@ -2574,23 +2551,8 @@ CONTAINS
     ! ######################################################################################
     ! Model state
     call t_startf('construct_cospstateIN')
-    ! JKS check memory
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
 
     call construct_cospstateIN(ncol,pver,cospstateIN)
-
-    ! JKS check memory
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cospstateIN: Increase in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cospstateIN: Increase in memory highwater = ', mem_hw_end, ' (MB)'
-    end if
 
     cospstateIN%lat                            = lat_cosp(1:ncol)
     cospstateIN%lon                            = lon_cosp(1:ncol) 
@@ -2615,10 +2577,7 @@ CONTAINS
     cospstateIN%hgt_matrix                     = zmid(1:ncol,1:pver)
     cospstateIN%hgt_matrix_half(1:ncol,1:pver) = zbot(1:ncol,pver:1:-1) 
     cospstateIN%surfelev(1:ncol)               = zbot(1:ncol,1)
-    
     cospstateIN%rttov_sfcmask                  = rttov_sfcmask(1:ncol)
-
-   ! cospgridIN%t2m
     
     ! Set time 
     call get_curr_date(yr, mon, day, ncsec)
@@ -2761,23 +2720,8 @@ CONTAINS
     
     ! Optical inputs
     call t_startf('construct_cospIN')
-    ! JKS check memory
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
 
     call construct_cospIN(ncol,nscol_cosp,pver,rttov_Ninstruments,cospIN,emis_grey=1.0_r8) ! JKS apply unitary blackbody surface emissivity to be consistent with CESM physics
-
-    ! JKS check memory
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cospIN: Increase in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'construct_cospIN: Increase in memory highwater = ', mem_hw_end, ' (MB)'
-    end if
 
     cospIN%emsfc_lw      = emsfc_lw
     if (lradar_sim) cospIN%rcfg_cloudsat = rcfg_cs(lchnk)
@@ -2786,7 +2730,7 @@ CONTAINS
        if (docosp) then 
            write(iulog,*)'after construct_cospIN'
        end if
-    end if         
+    end if     
     
     if (lrttov_sim) cospIN%cfg_rttov     => rttov_configs
 
@@ -2797,7 +2741,7 @@ CONTAINS
        if (docosp) then 
            write(iulog,*)'at subsample_and_optics'
        end if
-    end if     
+    end if
 
     ! *NOTE* Fields passed into subsample_and_optics are ordered from TOA-2-SFC.
     if (lradar_sim .or. (llidar_sim .or. (lisccp_sim .or. (lmisr_sim .or. lmodis_sim)))) then ! RTTOV does not use subsample_and_optics
@@ -2816,26 +2760,11 @@ CONTAINS
         call t_stopf('subsample_and_optics')
     end if
 
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS memory
-
     ! ######################################################################################
     ! Call COSP
     ! ######################################################################################
     call t_startf('cosp_simulator')
     cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.false.)
-
-    ! JKS memory
-    if (docosp) then 
-       call shr_mem_getusage(mem_hw_end, mem_end)
-       clat_p_tmp = mem_end - mem_beg
-       call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-          masterprocid, mpicom, curp)
-       if (masterproc) write(iulog, *) 'COSP_SIMULATOR: Increase in memory usage = ', mem_end, ' (MB)'
-       clat_p_tmp = mem_hw_end - mem_hw_beg
-       call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-          masterprocid, mpicom, curp)
-       if (masterproc) write(iulog, *) 'COSP_SIMULATOR: Increase in memory highwater = ', mem_hw_end, ' (MB)'
-    end if
 
     ! Check status flags
     nerror = 0
@@ -3230,63 +3159,18 @@ CONTAINS
     ! ######################################################################################
 
     call t_startf("destroy_cospIN")
-    ! JKS - memory check
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
 
     call destroy_cospIN(cospIN) ! JKS add swath destroy logical? Need to update function
 
-    ! JKS - memory check
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cospIN: Decrease in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cospIN: Decrease in memory highwater = ', mem_hw_end, ' (MB)'      
-    end if
-
     call t_stopf("destroy_cospIN") 
     call t_startf("destroy_cospstateIN")
-    ! JKS - memory check
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
 
     call destroy_cospstateIN(cospstateIN)
 
-    ! JKS - memory check
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cospstateIN: Decrease in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cospstateIN: Decrease in memory highwater = ', mem_hw_end, ' (MB)'         
-    end if
-
     call t_stopf("destroy_cospstateIN")
     call t_startf("destroy_cospOUT")
-    ! JKS - memory check
-    if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS leak troubleshoot
 
     call destroy_cosp_outputs(cospOUT) 
-
-    ! JKS - memory check
-    if (docosp) then 
-      call shr_mem_getusage(mem_hw_end, mem_end)
-      clat_p_tmp = mem_beg - mem_end ! mem_end - mem_beg
-      call MPI_reduce(clat_p_tmp, mem_end, 1, MPI_REAL8, MPI_MAX,            &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cosp_outputs: Decrease in memory usage = ', mem_end, ' (MB)'
-      clat_p_tmp = mem_hw_beg - mem_hw_end ! mem_hw_end - mem_hw_beg
-      call MPI_reduce(clat_p_tmp, mem_hw_end, 1, MPI_REAL8, MPI_MAX,         &
-         masterprocid, mpicom, curp)
-      if (masterproc) write(iulog, *) 'destroy_cosp_outputs: Decrease in memory highwater = ', mem_hw_end, ' (MB)'       
-    end if
 
     call t_stopf("destroy_cospOUT")
 
