@@ -2683,11 +2683,11 @@ CONTAINS
     ! if (masterproc) write(iulog,*) 'cospstateIN%o3(1,:): ',cospstateIN%o3(1,:)
     ! if (masterproc) write(iulog,*) 'cospgridIN%phalf(:,cospIN%Nlevels+1): ',cospgridIN%phalf(:,cospIN%Nlevels+1)
 
-    if (masterproc) then
-      if (docosp) then
-          print*,'Npoints: ',Npoints
-          print*,'reff_cosp(1:ncol,1:pver,I_LSCLIQ): ',reff_cosp(1:ncol,1:pver,I_LSCLIQ)
-          print*,'reff_cosp(1:ncol,1:pver,I_CVCLIQ): ',reff_cosp(1:ncol,1:pver,I_CVCLIQ)
+    !if (masterproc) then
+      !if (docosp) then
+         ! print*,'Npoints: ',Npoints
+         ! print*,'reff_cosp(1:ncol,1:pver,I_LSCLIQ): ',reff_cosp(1:ncol,1:pver,I_LSCLIQ)
+         ! print*,'reff_cosp(1:ncol,1:pver,I_CVCLIQ): ',reff_cosp(1:ncol,1:pver,I_CVCLIQ)
          !  print*,'reff_cosp(1:ncol,1:pver,I_LSCICE): ',reff_cosp(1:ncol,1:pver,I_LSCICE)
          !  print*,'reff_cosp(1:ncol,1:pver,I_CVCICE): ',reff_cosp(1:ncol,1:pver,I_CVCICE)
          !  print*,'dei(1:ncol,1:pver): ',dei(1:ncol,1:pver)
@@ -2700,8 +2700,8 @@ CONTAINS
          !  print*,'allcld_ice(1:ncol,1:pver): ',allcld_ice(1:ncol,1:pver)
          !  print*,'cospstateIN%o3(1,:): ',cospstateIN%o3(1,:)
          !  print*,'cospstateIN%tca(1,:): ',cospstateIN%tca(1,:)
-      end if
-    end if     
+      !end if
+    !end if     
 
     ! Combine large-scale and convective cloud effective radii into effective diameters for RTTOV
     ! Reff(Npoints,Nlevels,N_HYDRO)
@@ -2816,31 +2816,13 @@ CONTAINS
         call t_stopf('subsample_and_optics')
     end if
 
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'at COSP_SIMULATOR'
-       end if
-    end if 
-
     if (docosp) call shr_mem_getusage(mem_hw_beg, mem_beg) ! JKS memory
 
     ! ######################################################################################
     ! Call COSP
     ! ######################################################################################
     call t_startf('cosp_simulator')
-    
-    ! Run loudly (with print statements) for the main processor
-    if (masterproc) then
-      cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.true.)
-    else
-      cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.false.) 
-    end if 
-
-    if (masterproc) then
-       if (docosp) then 
-           write(iulog,*)'after COSP_SIMULATOR'
-       end if
-    end if 
+    cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx=1, stop_idx=ncol,debug=.false.)
 
     ! JKS memory
     if (docosp) then 
